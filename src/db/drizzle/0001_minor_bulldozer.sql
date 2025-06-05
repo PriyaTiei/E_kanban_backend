@@ -1,0 +1,1 @@
+ALTER TABLE "station_parts" ALTER COLUMN "product_id" DROP NOT NULL;
