@@ -1,0 +1,2 @@
+ALTER TABLE "kanban_requests" ADD COLUMN "exception_product_id" integer NOT NULL;--> statement-breakpoint
+ALTER TABLE "kanban_requests" ADD CONSTRAINT "kanban_requests_exception_product_id_products_id_fk" FOREIGN KEY ("exception_product_id") REFERENCES "public"."products"("id") ON DELETE no action ON UPDATE no action;

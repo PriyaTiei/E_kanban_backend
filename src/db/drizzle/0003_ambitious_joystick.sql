@@ -1,0 +1,1 @@
+ALTER TABLE "kanban_requests" ALTER COLUMN "exception_product_id" DROP NOT NULL;

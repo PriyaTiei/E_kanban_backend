@@ -16,9 +16,6 @@ class LookupCache {
     stationsTable.forEach(s => this.stations.set(s.name, s.id));
     partsTable.forEach(p => this.parts.set(p.name, p.id));
     productsTable.forEach(p => this.products.set(p.variant, p.id));
-    console.log("stations: ",this.stations);
-    console.log("parts: ",this.parts);
-    console.log("products: ",this.products);
   }
 
   getStationId(name: string) {

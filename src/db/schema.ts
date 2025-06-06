@@ -25,6 +25,7 @@ export const stationParts = pgTable("station_parts", {
   stationId: integer("station_id").references(() => stations.id).notNull(),
   partId: integer("part_id").references(() => parts.id).notNull(),
   productId: integer("product_id").references(() => products.id),
+  exceptionProductId: integer("exception_product_id").references(() => products.id),
   consumptionPerProduct: integer("consumption_per_product").notNull(),
   binQuantity: integer("bin_quantity").notNull(),
   currentQuantity: integer("current_quantity").notNull(),
