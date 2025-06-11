@@ -1,7 +1,7 @@
 import express, { Response } from "express";
 import { db } from "../db/client";
-import { kanbanRequests, stationParts } from "../db/schema";
-import { eq, and, or, isNull, ne } from "drizzle-orm";
+import { kanbanRequests, productEntryLogs, stationParts } from "../db/schema";
+import { eq, and, or, isNull, ne, desc } from "drizzle-orm";
 import { lookupCache } from "../scripts/lookupCache";
 
 export const sensorTriggerRouter = express.Router();
@@ -12,85 +12,116 @@ interface SensorTriggerRequest {
 }
 
 sensorTriggerRouter.post("/", async (req, res): Promise<any> => {
-  const { station, variant } = req.body as SensorTriggerRequest;
+  const { variant } = req.body as SensorTriggerRequest;
 
   try {
-    const stationId = lookupCache.getStationId(station);
     const variantId = lookupCache.getProductId(variant);
+    
+    // Map station ID order for easy lookup
+    const stationIds = lookupCache.getStationSequence();
 
-    const rows = await db
-      .select({
-        id: stationParts.id,
-        binQuantity: stationParts.binQuantity,
-        currentQuantity: stationParts.currentQuantity,
-        consumptionPerProduct: stationParts.consumptionPerProduct,
-        productId: stationParts.productId,
-        partId: stationParts.partId,
-      })
-      .from(stationParts)
-      .where(
-        and(
-          eq(stationParts.stationId, stationId),
-          or(isNull(stationParts.productId), eq(stationParts.productId, variantId)),
-          or(isNull(stationParts.exceptionProductId), ne(stationParts.exceptionProductId, variantId))
-        )
-      );
+    // Get current product entries (who is at what station)
+    const productLogs = await db
+      .select()
+      .from(productEntryLogs)
+      .orderBy(desc(productEntryLogs.stationId)); // important: descending to avoid conflict while shifting
 
-    if (rows.length === 0) {
-      return res.status(404).json({
-        message: "No consumable parts found for this station and product.",
-      });
-    }
-
-    // Run all updates and inserts in a transaction
     await db.transaction(async (tx) => {
-      for (const part of rows) {
-        let updatedQuantity: number;
-        let remainder: number;
+      // 1. Move existing products forward
+      for (const log of productLogs) {
+        const currentIndex = stationIds.indexOf(log.stationId);
+        const nextStationId = stationIds[currentIndex + 1];
 
-        if (part.currentQuantity - part.consumptionPerProduct <= 0) {
-          remainder = Math.abs(part.currentQuantity - part.consumptionPerProduct);
-          updatedQuantity = part.binQuantity - remainder;
-
-          // Update stationParts
+        if (nextStationId) {
+          // Move product to next station
           await tx
-            .update(stationParts)
+            .update(productEntryLogs)
             .set({
-              currentQuantity: updatedQuantity,
-              updatedAt: new Date(),
+              stationId: nextStationId,
+              timestamp: new Date(),
             })
-            .where(eq(stationParts.id, part.id))
-            .returning();
-
-          // Insert kanban request (one bin used up)
-          await tx
-            .insert(kanbanRequests)
-            .values({
-              stationId: stationId,
-              partId: part.partId,
-              productId: variantId,
-            });
+            .where(eq(productEntryLogs.id, log.id));
         } else {
-          // Just update quantity normally
-          updatedQuantity = part.currentQuantity - part.consumptionPerProduct;
+          // Product has moved beyond last station — remove or ignore
+          await tx.delete(productEntryLogs).where(eq(productEntryLogs.id, log.id));
+        }
+      }
 
-          await tx
-            .update(stationParts)
-            .set({
-              currentQuantity: updatedQuantity,
-              updatedAt: new Date(),
-            })
-            .where(eq(stationParts.id, part.id))
-            .returning();
+      // 2. Insert the new product into the first station
+      const firstStationId = stationIds[0];
+      await tx.insert(productEntryLogs).values({
+        stationId: firstStationId,
+        productId: variantId,
+        timestamp: new Date(),
+      });
+
+      // 3. Get updated logs after shifting
+      const updatedLogs = await tx
+        .select()
+        .from(productEntryLogs);
+
+      // 4. Process inventory deduction for each station-product pair
+      for (const log of updatedLogs) {
+        const parts = await tx
+          .select({
+            id: stationParts.id,
+            binQuantity: stationParts.binQuantity,
+            currentQuantity: stationParts.currentQuantity,
+            consumptionPerProduct: stationParts.consumptionPerProduct,
+            productId: stationParts.productId,
+            partId: stationParts.partId,
+          })
+          .from(stationParts)
+          .where(
+            and(
+              eq(stationParts.stationId, log.stationId),
+              or(isNull(stationParts.productId), eq(stationParts.productId, log.productId)),
+              or(isNull(stationParts.exceptionProductId), ne(stationParts.exceptionProductId, log.productId))
+            )
+          );
+
+        for (const part of parts) {
+          let updatedQuantity: number;
+          let remainder: number;
+
+          if (part.currentQuantity - part.consumptionPerProduct <= 0) {
+            remainder = Math.abs(part.currentQuantity - part.consumptionPerProduct);
+            updatedQuantity = part.binQuantity - remainder;
+
+            await tx
+              .update(stationParts)
+              .set({
+                currentQuantity: updatedQuantity,
+                updatedAt: new Date(),
+              })
+              .where(eq(stationParts.id, part.id));
+
+            await tx.insert(kanbanRequests).values({
+              stationId: log.stationId,
+              partId: part.partId,
+              productId: log.productId,
+            });
+          } else {
+            updatedQuantity = part.currentQuantity - part.consumptionPerProduct;
+
+            await tx
+              .update(stationParts)
+              .set({
+                currentQuantity: updatedQuantity,
+                updatedAt: new Date(),
+              })
+              .where(eq(stationParts.id, part.id));
+          }
         }
       }
     });
 
     return res.status(200).json({
-      message: `Part quantities updated successfully for station ${station} and variant ${variant}.`,
+      message: "Line shifted and part inventories updated successfully.",
     });
   } catch (err: any) {
     console.error("Sensor trigger error:", err);
     return res.status(500).json({ error: err.message || "Internal server error" });
   }
 });
+
