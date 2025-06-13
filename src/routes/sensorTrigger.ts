@@ -7,7 +7,6 @@ import { lookupCache } from "../scripts/lookupCache";
 export const sensorTriggerRouter = express.Router();
 
 interface SensorTriggerRequest {
-  station: string;
   variant: string;
 }
 
@@ -15,7 +14,7 @@ sensorTriggerRouter.post("/", async (req, res): Promise<any> => {
   const { variant } = req.body as SensorTriggerRequest;
 
   try {
-    const variantId = lookupCache.getProductId(variant);
+    const variantId = lookupCache.getProductId(String(variant));
     
     // Map station ID order for easy lookup
     const stationIds = lookupCache.getStationSequence();

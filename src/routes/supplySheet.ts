@@ -1,7 +1,7 @@
 import express from "express";
 import { db } from "../db/client";
-import { kanbanRequests } from "../db/schema";
-import { eq, and, asc } from "drizzle-orm";
+import { kanbanRequests, stations, parts, products } from "../db/schema";
+import { eq, and, asc, count } from "drizzle-orm";
 
 export const supplySheetRouter = express.Router();
 
@@ -14,14 +14,51 @@ interface supplySheetModifyRequest {
 supplySheetRouter.get("/kanbans", async (_, res): Promise<any> => {
     try {
         const kanbans = await db
-        .select()
-        .from(kanbanRequests)
-        .where(and(eq(kanbanRequests.acknowledgedByLogistics, true), eq(kanbanRequests.fulfilled, false)))
-        .orderBy(asc(kanbanRequests.requestedAt));
+            .select({
+                id: kanbanRequests.id,
+                stationId: kanbanRequests.stationId,
+                stationName: stations.name,
+                partId: kanbanRequests.partId,
+                partName: parts.name,
+                productId: kanbanRequests.productId,
+                productName: products.variant, // or products.name if you have it
+                requestedAt: kanbanRequests.requestedAt,
+                acknowledgedByLogistics: kanbanRequests.acknowledgedByLogistics,
+                acknowledgedAt: kanbanRequests.acknowledgedAt,
+                fulfilled: kanbanRequests.fulfilled,
+                fulfilledAt: kanbanRequests.fulfilledAt,
+            })
+            .from(kanbanRequests)
+            .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
+            .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+            .leftJoin(products, eq(kanbanRequests.productId, products.id))
+            .where(and(
+                eq(kanbanRequests.acknowledgedByLogistics, true),
+                eq(kanbanRequests.fulfilled, false)
+            ))
+            .orderBy(asc(kanbanRequests.requestedAt));
 
         return res.status(200).json(kanbans);
     } catch (err: any) {
         console.error("Error fetching kanbans:", err);
+        return res.status(500).json({ error: err.message || "Internal server error" });
+    }
+});
+
+supplySheetRouter.get("/kanbans/count", async (_, res): Promise<any> => {
+    try {
+        const result = await db
+            .select({ total: count() })
+            .from(kanbanRequests)
+            .where(and(
+                eq(kanbanRequests.acknowledgedByLogistics, true),
+                eq(kanbanRequests.fulfilled, false)
+            ));
+
+        // result is an array with one object: [{ total: number }]
+        return res.status(200).json({ total: result[0]?.total ?? 0 });
+    } catch (err: any) {
+        console.error("Error fetching kanban count:", err);
         return res.status(500).json({ error: err.message || "Internal server error" });
     }
 });
