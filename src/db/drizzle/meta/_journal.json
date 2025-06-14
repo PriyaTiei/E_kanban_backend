@@ -36,6 +36,20 @@
       "when": 1749122927143,
       "tag": "0004_wealthy_red_wolf",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1749805068481,
+      "tag": "0005_rainy_big_bertha",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1749867832427,
+      "tag": "0006_massive_squirrel_girl",
+      "breakpoints": true
     }
   ]
 }

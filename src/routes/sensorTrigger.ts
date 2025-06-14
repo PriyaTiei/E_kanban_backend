@@ -10,11 +10,13 @@ interface SensorTriggerRequest {
   variant: string;
 }
 
-sensorTriggerRouter.post("/", async (req, res): Promise<any> => {
+sensorTriggerRouter.post("/gd", async (req, res): Promise<any> => {
   const { variant } = req.body as SensorTriggerRequest;
 
   try {
     const variantId = lookupCache.getProductId(String(variant));
+    const gdPlantName = 'GD';
+    const plantId = lookupCache.getPlantId(gdPlantName);
     
     // Map station ID order for easy lookup
     const stationIds = lookupCache.getStationSequence();
@@ -49,6 +51,7 @@ sensorTriggerRouter.post("/", async (req, res): Promise<any> => {
       // 2. Insert the new product into the first station
       const firstStationId = stationIds[0];
       await tx.insert(productEntryLogs).values({
+        plantId: plantId,
         stationId: firstStationId,
         productId: variantId,
         timestamp: new Date(),
@@ -96,6 +99,7 @@ sensorTriggerRouter.post("/", async (req, res): Promise<any> => {
               .where(eq(stationParts.id, part.id));
 
             await tx.insert(kanbanRequests).values({
+              plantId: plantId,
               stationId: log.stationId,
               partId: part.partId,
               productId: log.productId,

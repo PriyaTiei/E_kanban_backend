@@ -9,9 +9,15 @@ export const products = pgTable("products", {
   variant: productVariantEnum("variant").notNull(), 
 });
 
+export const plants = pgTable("plants", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+});
+
 export const stations = pgTable("stations", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 50 }).notNull(),
+  plantId: integer("plant_id").references(() => plants.id).notNull().default(1),
 });
 
 export const parts = pgTable("parts", {
@@ -22,6 +28,7 @@ export const parts = pgTable("parts", {
 
 export const stationParts = pgTable("station_parts", {
   id: serial("id").primaryKey(),
+  plantId: integer("plant_id").references(() => plants.id).notNull().default(1),
   stationId: integer("station_id").references(() => stations.id).notNull(),
   partId: integer("part_id").references(() => parts.id).notNull(),
   productId: integer("product_id").references(() => products.id),
@@ -35,19 +42,23 @@ export const stationParts = pgTable("station_parts", {
 
 export const productEntryLogs = pgTable("product_entry_logs", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").references(() => products.id).notNull(),
+  plantId: integer("plant_id").references(() => plants.id).notNull().default(1),
   stationId: integer("station_id").references(() => stations.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
   timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username", { length: 50 }).notNull().unique(),
-  role: userRoleEnum("role").notNull(), 
+  password: text("password").notNull(),
+  role: userRoleEnum("role").notNull(),
+  plantId: integer("plant_id").references(() => plants.id).notNull().default(1),
 });
 
 export const kanbanRequests = pgTable("kanban_requests", {
   id: serial("id").primaryKey(),
+  plantId: integer("plant_id").references(() => plants.id).notNull().default(1),
   stationId: integer("station_id").references(() => stations.id).notNull(),
   partId: integer("part_id").references(() => parts.id).notNull(),
   productId: integer("product_id").references(() => products.id).notNull(),
