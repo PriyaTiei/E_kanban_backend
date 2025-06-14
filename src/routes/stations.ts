@@ -1,12 +1,23 @@
 import express from 'express';
 import { db } from '../db/client';
 import { stations } from '../db/schema';
+import { eq, sql } from 'drizzle-orm';
 
 export const stationsRouter = express.Router();
 
-stationsRouter.get('/', async (req, res) => {
+stationsRouter.get('/', async (req, res): Promise<any> => {
   try {
-    const stationDetails = await db.select().from(stations).orderBy(stations.id);
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const isAdmin = user.role === "admin";
+    const plantId = user.plantId;
+    const whereClause = isAdmin && plantId === null
+      ? sql`1=1`
+      : eq(stations.plantId, plantId!);
+
+    const stationDetails = await db.select().from(stations).where(whereClause).orderBy(stations.id);
     res.json(stationDetails);
   } catch (error) {
     console.error('Failed to fetch stations:', error);

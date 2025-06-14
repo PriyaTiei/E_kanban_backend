@@ -2,7 +2,7 @@ import express, { Response } from "express";
 import { db } from "../db/client";
 import { kanbanRequests, productEntryLogs, stationParts } from "../db/schema";
 import { eq, and, or, isNull, ne, desc } from "drizzle-orm";
-import { lookupCache } from "../scripts/lookupCache";
+import { lookupCache } from "../lib/lookupCache";
 
 export const sensorTriggerRouter = express.Router();
 

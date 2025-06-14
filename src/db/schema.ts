@@ -53,7 +53,7 @@ export const users = pgTable("users", {
   username: varchar("username", { length: 50 }).notNull().unique(),
   password: text("password").notNull(),
   role: userRoleEnum("role").notNull(),
-  plantId: integer("plant_id").references(() => plants.id).notNull().default(1),
+  plantId: integer("plant_id").references(() => plants.id),
 });
 
 export const kanbanRequests = pgTable("kanban_requests", {

@@ -1,12 +1,22 @@
 import express from 'express';
 import { db } from '../db/client';
 import { stationParts, stations, parts, products } from '../db/schema';
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 
 export const stationPartsRouter = express.Router();
 
-stationPartsRouter.get('/', async (req, res) => {
+stationPartsRouter.get('/', async (req, res): Promise<any> => {
   try {
+    const user = req.session.user;    
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const isAdmin = user.role === "admin";
+    const plantId = user.plantId;
+    const whereClause = isAdmin && plantId === null
+      ? sql`1=1`
+      : eq(stationParts.plantId, plantId!);
+
     const stationData = await db
       .select({
         id: stationParts.id,
@@ -27,6 +37,7 @@ stationPartsRouter.get('/', async (req, res) => {
       .leftJoin(stations, eq(stationParts.stationId, stations.id))
       .leftJoin(parts, eq(stationParts.partId, parts.id))
       .leftJoin(products, eq(stationParts.productId, products.id))
+      .where(whereClause)
       .orderBy(asc(stationParts.stationId));
 
     res.json(stationData);

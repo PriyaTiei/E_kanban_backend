@@ -2,20 +2,30 @@ import express from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products } from "../db/schema";
 import { eq, and, asc, count } from "drizzle-orm";
+import { KanbanModifyRequest } from "../lib/types";
+import { deleteKanban } from "../lib/kanbanHelpers";
 
 export const preparationSheetRouter = express.Router();
 
-interface PreparationSheetModifyRequest {
-    stationId: number;
-    partId: number;
-    productId: number;
-}
-
-preparationSheetRouter.get("/kanbans", async (_, res): Promise<any> => {
+preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     try {
+        const user = req.session.user;
+        if (!user) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        const isAdmin = user.role === "admin";
+        const plantId = user.plantId;
+        const whereClause = isAdmin && plantId === null
+            ? eq(kanbanRequests.acknowledgedByLogistics, false)
+            : and(
+                eq(kanbanRequests.acknowledgedByLogistics, false),
+                eq(kanbanRequests.plantId, plantId!)
+            );
+
         const kanbans = await db
             .select({
                 id: kanbanRequests.id,
+                plantId: kanbanRequests.plantId,
                 stationId: kanbanRequests.stationId,
                 stationName: stations.name,
                 partId: kanbanRequests.partId,
@@ -32,7 +42,7 @@ preparationSheetRouter.get("/kanbans", async (_, res): Promise<any> => {
             .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
             .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
             .leftJoin(products, eq(kanbanRequests.productId, products.id))
-            .where(eq(kanbanRequests.acknowledgedByLogistics, false))
+            .where(whereClause)
             .orderBy(asc(kanbanRequests.requestedAt));
 
         return res.status(200).json(kanbans);
@@ -42,12 +52,25 @@ preparationSheetRouter.get("/kanbans", async (_, res): Promise<any> => {
     }
 });
 
-preparationSheetRouter.get("/kanbans/count", async (_, res): Promise<any> => {
+preparationSheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
     try {
+        const user = req.session.user;
+        if (!user) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        const isAdmin = user.role === "admin";
+        const plantId = user.plantId;
+        const whereClause = isAdmin && plantId === null
+            ? eq(kanbanRequests.acknowledgedByLogistics, false)
+            : and(
+                eq(kanbanRequests.acknowledgedByLogistics, false),
+                eq(kanbanRequests.plantId, plantId!)
+            );
+
         const result = await db
             .select({ total: count() })
             .from(kanbanRequests)
-            .where(eq(kanbanRequests.acknowledgedByLogistics, false));
+            .where(whereClause);
 
         // result is an array with one object: [{ total: number }]
         return res.status(200).json({ total: result[0]?.total ?? 0 });
@@ -58,10 +81,20 @@ preparationSheetRouter.get("/kanbans/count", async (_, res): Promise<any> => {
 });
 
 preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
-    const { stationId, partId, productId } = req.body as PreparationSheetModifyRequest;
+    const user = req.session.user;
+    if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
+    const isAuthorized = user.role === "admin" || user.role === "logistics";
+    if (!isAuthorized) {
+        return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
+    }
+    
+    const { plantId, stationId, partId, productId } = req.body as KanbanModifyRequest;
     console.log("Received request to update kanban:", req.body);
     
     if (
+        plantId === undefined ||
         stationId === undefined ||
         partId === undefined ||
         productId === undefined
@@ -70,19 +103,20 @@ preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
     }
 
     try {
+        const whereClause = and (
+            eq(kanbanRequests.stationId, stationId),
+            eq(kanbanRequests.partId, partId),
+            eq(kanbanRequests.productId, productId),
+            eq(kanbanRequests.plantId, plantId)
+        );
+
         const acknowledgedByLogistics = true;
         const acknowledgedAt = new Date();
 
         const result = await db
         .update(kanbanRequests)
         .set({ acknowledgedByLogistics, acknowledgedAt })
-        .where(
-            and(
-            eq(kanbanRequests.stationId, stationId),
-            eq(kanbanRequests.partId, partId),
-            eq(kanbanRequests.productId, productId)
-            )
-        )
+        .where(whereClause)
         .returning();
 
         if (result.length === 0) {
@@ -97,42 +131,6 @@ preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
     }
 });
 
-preparationSheetRouter.delete("/kanban", async (req, res): Promise<any> => {
-    const { stationId, partId, productId } = req.query;
-
-    if (
-        isNaN(Number(stationId)) ||
-        isNaN(Number(partId)) ||
-        isNaN(Number(productId))
-    ) {
-        return res.status(400).json({ error: 'Invalid or missing query parameters' });
-    }
-
-    const parsedRequest: PreparationSheetModifyRequest = {
-        stationId: Number(stationId),
-        partId: Number(partId),
-        productId: Number(productId),
-    };
-        
-    try {
-        const deleted = await db
-        .delete(kanbanRequests)
-        .where(
-            and(
-            eq(kanbanRequests.stationId, parsedRequest.stationId),
-            eq(kanbanRequests.partId, parsedRequest.partId),
-            eq(kanbanRequests.productId, parsedRequest.productId)
-            )
-        )
-        .returning();
-
-        if (deleted.length === 0) {
-            return res.status(404).json({ message: "Kanban not found" });
-        }
-
-        return res.status(200).json({ message: "Kanban deleted successfully" });
-    } catch (error: any) {
-        console.error("Error deleting kanban:", error);
-        return res.status(500).json({ error: error.message || "Internal server error" });
-    }
+preparationSheetRouter.delete("/kanban", (req, res) => {
+    deleteKanban(req, res);
 });
