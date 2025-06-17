@@ -12,8 +12,5 @@ declare module "express-session" {
 }
 
 export interface KanbanModifyRequest {
-  plantId: number;
-  stationId: number;
-  partId: number;
-  productId: number;
+  kanbanId: number;
 }

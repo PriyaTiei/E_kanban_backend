@@ -14,33 +14,22 @@ export async function deleteKanban(req:Request, res:Response): Promise<Response>
         return res.status(403).json({ error: "Forbidden: Only admins can delete kanbans" });
     }
 
-    const { plantId, stationId, partId, productId } = req.query;
+    const { kanbanId } = req.query;
 
     if (
-        isNaN(Number(plantId)) ||
-        isNaN(Number(stationId)) ||
-        isNaN(Number(partId)) ||
-        isNaN(Number(productId))
+        isNaN(Number(kanbanId))
     ) {
         return res.status(400).json({ error: 'Invalid or missing query parameters' });
     }
 
     const parsedRequest: KanbanModifyRequest = {
-        plantId: Number(plantId),
-        stationId: Number(stationId),
-        partId: Number(partId),
-        productId: Number(productId),
+        kanbanId: Number(kanbanId),
     };
 
     try {
         const deleted = await db
         .delete(kanbanRequests)
-        .where(and(
-            eq(kanbanRequests.plantId, parsedRequest.plantId),
-            eq(kanbanRequests.stationId, parsedRequest.stationId),
-            eq(kanbanRequests.partId, parsedRequest.partId),
-            eq(kanbanRequests.productId, parsedRequest.productId)
-        ))
+        .where(eq(kanbanRequests.plantId, parsedRequest.kanbanId))
         .returning();
 
         if (deleted.length === 0) {

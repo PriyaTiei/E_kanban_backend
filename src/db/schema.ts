@@ -24,6 +24,9 @@ export const parts = pgTable("parts", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 50 }).notNull(),
   description: text("description"),
+  process: integer("process"),
+  prepLocation: varchar("prep-location", { length: 50 }),
+  supplyLocation: varchar("supply-location", { length: 50 }),
 });
 
 export const stationParts = pgTable("station_parts", {
@@ -67,6 +70,21 @@ export const kanbanRequests = pgTable("kanban_requests", {
   acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
   fulfilled: boolean("fulfilled").default(false).notNull(),
   fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
+});
+
+// Table to store frozen kanbans for a process
+export const frozenKanbans = pgTable("frozen_kanbans", {
+  id: serial("id").primaryKey(),
+  process: integer("process").notNull(),
+  kanbanId: integer("kanban_id").references(() => kanbanRequests.id).notNull(),
+  frozenAt: timestamp("frozen_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Table to track whether a process is frozen or not
+export const processFreezeState = pgTable("process_freeze_state", {
+  process: integer("process").primaryKey(),
+  isFrozen: boolean("is_frozen").notNull().default(false),
+  frozenAt: timestamp("frozen_at", { withTimezone: true }),
 });
 
 export const kanbanActions = pgTable("kanban_actions", {

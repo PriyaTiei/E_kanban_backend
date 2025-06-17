@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products, plants } from "../db/schema";
-import { eq, sql, and, asc } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 
 export const kanbanRequestsLogRouter = express.Router();
 
@@ -41,7 +41,7 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
       .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
       .leftJoin(products, eq(kanbanRequests.productId, products.id))
       .where(whereClause)
-      .orderBy(asc(kanbanRequests.requestedAt));
+      .orderBy(desc(kanbanRequests.requestedAt));
 
     return res.json(logs);
   } catch (error) {
