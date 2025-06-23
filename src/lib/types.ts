@@ -14,3 +14,16 @@ declare module "express-session" {
 export interface KanbanModifyRequest {
   kanbanId: number;
 }
+
+export interface ProductEntry {
+  id_number: string;
+  created_at: string;
+}
+
+export interface ProductEntryResponse {
+  data : ProductEntry[];
+  pagination: {
+    page: number;
+    limit: number;
+  }
+}

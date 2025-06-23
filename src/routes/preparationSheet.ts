@@ -45,6 +45,16 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
           eq(kanbanRequests.plantId, plantId!)
         );
 
+    const orderByClause = sql`
+      CASE
+        WHEN ${parts.prepLocation} LIKE 'TZ-%' THEN 1
+        WHEN ${parts.prepLocation} LIKE 'LOG-%' THEN 2
+        ELSE 3
+      END,
+      regexp_replace(${parts.prepLocation}, '[^0-9]', '', 'g')::int,
+      ${kanbanRequests.requestedAt}
+    `;
+
     if (!processFilter) {
       // No process filter — return all kanbans normally
       const kanbans = await db
@@ -54,7 +64,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
         .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(baseWhereClause)
-        .orderBy(asc(kanbanRequests.requestedAt));
+        .orderBy(orderByClause);
 
       return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false});
     }
@@ -79,7 +89,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
         .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(and(eq(frozenKanbans.process, processFilter), baseWhereClause))
-        .orderBy(asc(kanbanRequests.requestedAt));
+        .orderBy(orderByClause);
 
       return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: true});
     } else {
@@ -91,7 +101,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
         .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(and(baseWhereClause, eq(parts.process, processFilter)))
-        .orderBy(asc(kanbanRequests.requestedAt));
+        .orderBy(orderByClause);
 
       return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false});
     }

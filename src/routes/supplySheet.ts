@@ -1,7 +1,7 @@
 import express from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products } from "../db/schema";
-import { eq, and, asc, count } from "drizzle-orm";
+import { eq, and, asc, count, sql } from "drizzle-orm";
 import { KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
 
@@ -26,6 +26,18 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
           eq(kanbanRequests.plantId, plantId!)
         );
 
+    const orderByClause = sql`
+      CASE
+        WHEN ${parts.supplyLocation} LIKE 'SA-%' THEN 1
+        WHEN ${parts.supplyLocation} LIKE 'MK1-%' THEN 2
+        WHEN ${parts.supplyLocation} LIKE 'MK2-%' THEN 3
+        ELSE 4
+      END,
+      regexp_replace(${parts.supplyLocation}, '[^0-9]', '', 'g')::int,
+      ${parts.supplyLocation},
+      ${kanbanRequests.acknowledgedAt}
+    `;
+
     const kanbans = await db
       .select({
         id: kanbanRequests.id,
@@ -40,7 +52,7 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
       .leftJoin(products, eq(kanbanRequests.productId, products.id))
       .where(whereClause)
-      .orderBy(asc(kanbanRequests.requestedAt));
+      .orderBy(orderByClause);
 
     return res.status(200).json(kanbans);
   } catch (err: any) {

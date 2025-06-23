@@ -94,3 +94,9 @@ export const kanbanActions = pgTable("kanban_actions", {
   actionType: kanbanActionTypeEnum("action_type").notNull(), 
   timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(), // can store timestamps, JSON, etc.
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});

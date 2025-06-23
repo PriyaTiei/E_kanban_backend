@@ -71,6 +71,13 @@
       "when": 1750061022008,
       "tag": "0009_gigantic_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1750411559608,
+      "tag": "0010_typical_white_queen",
+      "breakpoints": true
     }
   ]
 }
