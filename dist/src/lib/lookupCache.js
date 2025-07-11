@@ -1,0 +1,66 @@
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.lookupCache = void 0;
+const client_1 = require("../db/client");
+const schema_1 = require("../db/schema");
+class LookupCache {
+    constructor() {
+        this.plants = new Map();
+        this.stations = new Map();
+        this.parts = new Map();
+        this.products = new Map();
+        this.stationSequence = [];
+    }
+    initialize() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const [plantsTable, stationsTable, partsTable, productsTable] = yield Promise.all([
+                client_1.db.select().from(schema_1.plants),
+                client_1.db.select({ id: schema_1.stations.id, name: schema_1.stations.name }).from(schema_1.stations),
+                client_1.db.select({ id: schema_1.parts.id, name: schema_1.parts.name }).from(schema_1.parts),
+                client_1.db.select({ id: schema_1.products.id, variant: schema_1.products.variant }).from(schema_1.products),
+            ]);
+            this.stationSequence = stationsTable.sort((a, b) => a.id - b.id);
+            plantsTable.forEach((p) => this.plants.set(p.name, p.id));
+            stationsTable.forEach((s) => this.stations.set(s.name, s.id));
+            partsTable.forEach((p) => this.parts.set(p.name, p.id));
+            productsTable.forEach((p) => this.products.set(p.variant, p.id));
+        });
+    }
+    getPlantId(name) {
+        const id = this.plants.get(name);
+        if (!id)
+            throw new Error(`Unknown plant: ${name}`);
+        return id;
+    }
+    getStationId(name) {
+        const id = this.stations.get(name);
+        if (!id)
+            throw new Error(`Unknown station: ${name}`);
+        return id;
+    }
+    getStationSequence() {
+        return this.stationSequence.map((s) => s.id);
+    }
+    getPartId(name) {
+        const id = this.parts.get(name);
+        if (!id)
+            throw new Error(`Unknown part: ${name}`);
+        return id;
+    }
+    getProductId(variant) {
+        const id = this.products.get(variant);
+        if (!id)
+            throw new Error(`Unknown product variant: ${variant}`);
+        return id;
+    }
+}
+exports.lookupCache = new LookupCache();

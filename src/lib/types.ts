@@ -12,7 +12,7 @@ declare module "express-session" {
 }
 
 export interface KanbanModifyRequest {
-  kanbanId: number;
+  kanbanIds: number[];
 }
 
 export interface ProductEntry {

@@ -1,7 +1,7 @@
 import express from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products, frozenKanbans, processFreezeState } from "../db/schema";
-import { eq, and, asc, count, sql } from "drizzle-orm";
+import { eq, and, asc, count, sql, inArray } from "drizzle-orm";
 import { KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
 
@@ -149,11 +149,12 @@ preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
     return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
   }
   
-  const { kanbanId } = req.body as KanbanModifyRequest;
-  console.log("Received request to update kanban:", req.body);
-  
-  if (kanbanId === undefined) {
-    return res.status(400).json({ error: "Missing required field" });
+  const { kanbanIds } = req.body as KanbanModifyRequest;
+  console.log("Received request to update kanban in prep list:", kanbanIds);
+
+  if (!Array.isArray(kanbanIds) || kanbanIds.length === 0) {
+    console.log("kanbanIds array is required");
+    return res.status(400).json({ error: "kanbanIds array is required" });
   }
 
   try {
@@ -163,17 +164,18 @@ preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
     const result = await db
     .update(kanbanRequests)
     .set({ acknowledgedByLogistics, acknowledgedAt })
-    .where(eq(kanbanRequests.id, kanbanId))
+    .where(inArray(kanbanRequests.id, kanbanIds))
     .returning();
 
     if (result.length === 0) {
-    return res.status(404).json({ message: "Kanban not found" });
+      console.log("Kanban not found");
+      return res.status(404).json({ message: "Kanban not found" });
     }
 
     console.log("Preparation Kanban updated successfully:", result); 
     return res.status(200).json({ message: "Kanban updated successfully", updatedKanbans: result });
   } catch (error: any) {
-    console.error("Error updating kanban:", error);
+    console.log("Error updating kanban:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
   }
 });

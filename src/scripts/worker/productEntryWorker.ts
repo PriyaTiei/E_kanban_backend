@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 import { ProductEntryResponse } from '../../lib/types';
-import { handleSensorTrigger } from '../../lib/productEntryHelper';
+import { handleProductShift } from '../../lib/productEntryHelper';
 import { getSetting, setSetting } from '../../lib/settingsService';
 import { lookupCache } from '../../lib/lookupCache';
 
@@ -15,6 +15,7 @@ const SETTING_KEY = "last_processed_timestamp";
 async function pollEntries() {
   try {
     if (API_URL && BEARER_TOKEN) {
+        console.log("🔄 Polling for new product entries...");
         const lastProcessed = await getSetting(SETTING_KEY);
         const lastProcessedDate = lastProcessed ? new Date(lastProcessed) : new Date(0);
 
@@ -28,7 +29,7 @@ async function pollEntries() {
         const json = await res.json() as ProductEntryResponse;
         const entries = json.data;
 
-        if (!entries?.length) return;
+        if (!entries || !entries.length) return;
 
         // Sort oldest to newest
         const sorted = entries
@@ -40,11 +41,9 @@ async function pollEntries() {
 
         console.log(`📦 Found ${sorted.length} new entries since last processed at ${lastProcessedDate.toLocaleString()}: `,sorted);
         
-        await lookupCache.initialize();
-
         for (const entry of sorted) {
         console.log(`⚙️ Processing ${entry.id_number} at ${entry.created_at}`);
-        await handleSensorTrigger(entry.id_number);
+        await handleProductShift(entry.id_number);
         await setSetting(SETTING_KEY, entry.created_at);
         }
     }
@@ -53,5 +52,10 @@ async function pollEntries() {
   }
 }
 
-setInterval(pollEntries, POLL_INTERVAL_MS);
-console.log("📡 Polling worker started...");
+async function main() {
+  await lookupCache.initialize();
+  setInterval(pollEntries, POLL_INTERVAL_MS);
+  console.log("📡 Polling worker started...");
+}
+
+main();

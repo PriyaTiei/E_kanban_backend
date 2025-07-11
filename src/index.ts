@@ -17,12 +17,22 @@ import { kanbanRequestsLogRouter } from "./routes/kanbanRequestsLog";
 dotenv.config();
 
 const HOST = process.env.APP_HOST;
-const PORT = process.env.APP_PORT;
+const devMode = process.env.NODE_ENV === "development";
+const PORT = devMode ? process.env.DEV_PORT : process.env.APP_PORT;
 const app = express();
 
 // Allow CORS from specific origin
+const allowedClients = JSON.parse(process.env.ALLOWED_CLIENTS || "[]");
 app.use(cors({
-  origin: process.env.ALLOWED_CLIENTS,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedClients.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error("Not allowed by CORS"), false);
+    }
+  },
   credentials: true 
 }));
 

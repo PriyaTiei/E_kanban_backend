@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { db } from "../db/client";
 import { kanbanRequests } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { KanbanModifyRequest } from "./types";
 
 export async function deleteKanban(req:Request, res:Response): Promise<Response> {
@@ -14,26 +14,20 @@ export async function deleteKanban(req:Request, res:Response): Promise<Response>
         return res.status(403).json({ error: "Forbidden: Only admins can delete kanbans" });
     }
 
-    const { kanbanId } = req.query;
+    const { kanbanIds } = req.body as KanbanModifyRequest;
 
-    if (
-        isNaN(Number(kanbanId))
-    ) {
-        return res.status(400).json({ error: 'Invalid or missing query parameters' });
+    if (!Array.isArray(kanbanIds) || kanbanIds.length === 0 || kanbanIds.some(id => isNaN(Number(id)))) {
+        return res.status(400).json({ error: 'kanbanIds (array of numbers) is required' });
     }
-
-    const parsedRequest: KanbanModifyRequest = {
-        kanbanId: Number(kanbanId),
-    };
 
     try {
         const deleted = await db
         .delete(kanbanRequests)
-        .where(eq(kanbanRequests.plantId, parsedRequest.kanbanId))
+        .where(inArray(kanbanRequests.plantId, kanbanIds))
         .returning();
 
         if (deleted.length === 0) {
-        return res.status(404).json({ message: "Kanban not found" });
+            return res.status(404).json({ message: "Kanban not found" });
         }
 
         return res.status(200).json({ message: "Kanban deleted successfully" });

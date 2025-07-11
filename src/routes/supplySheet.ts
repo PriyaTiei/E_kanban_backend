@@ -1,7 +1,7 @@
 import express from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products } from "../db/schema";
-import { eq, and, asc, count, sql } from "drizzle-orm";
+import { eq, and, asc, count, sql, inArray } from "drizzle-orm";
 import { KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
 
@@ -102,12 +102,11 @@ supplySheetRouter.put("/kanban", async (req, res): Promise<any> => {
     return res.status(403).json({ error: "Forbidden: Only admins and suppliers can update kanbans" });
   }
   
-  const { kanbanId } = req.body as KanbanModifyRequest;
+  const { kanbanIds } = req.body as KanbanModifyRequest;
+  console.log("Received request to update kanban in supply list:", kanbanIds);
 
-  if (
-    kanbanId === undefined
-  ) {
-    return res.status(400).json({ error: "Missing required fields" });
+  if (!Array.isArray(kanbanIds) || kanbanIds.length === 0) {
+    return res.status(400).json({ error: "kanbanIds array is required" });
   }
 
   try {
@@ -117,7 +116,7 @@ supplySheetRouter.put("/kanban", async (req, res): Promise<any> => {
     const result = await db
       .update(kanbanRequests)
       .set({ fulfilled, fulfilledAt })
-      .where(eq(kanbanRequests.id, kanbanId))
+      .where(inArray(kanbanRequests.id, kanbanIds))
       .returning();
 
     if (result.length === 0) {

@@ -2,25 +2,37 @@
 
 import { db } from "../db/client";
 import { productEntryLogs, kanbanRequests, stationParts } from "../db/schema";
-import { eq, and, or, isNull, ne, desc } from "drizzle-orm";
+import { eq, and, or, isNull, ne, desc, gte } from "drizzle-orm";
 import { lookupCache } from "./lookupCache";
 
-export async function handleSensorTrigger(variant: string) {
+export async function handleProductShift(variant: string, refeedStationId?: number) {
   const variantId = lookupCache.getProductId(String(variant));
   const gdPlantName = "GD";
   const plantId = lookupCache.getPlantId(gdPlantName);
   const stationIds = lookupCache.getStationSequence();
 
+  // If refeedStationId is provided, use it; otherwise, use the first station
+  const startStationId = refeedStationId ?? stationIds[0];
+  const startIndex = stationIds.indexOf(startStationId);
+  if (startIndex === -1) throw new Error("Invalid stationId");
+
+  // Only select logs at or after the refeed station
   const productLogs = await db
     .select()
     .from(productEntryLogs)
+    .where(
+      and(
+        eq(productEntryLogs.plantId, plantId),
+        // Only logs with stationId >= startStationId
+        gte(productEntryLogs.stationId, startStationId),
+      )
+    )
     .orderBy(desc(productEntryLogs.stationId));
 
   await db.transaction(async (tx) => {
     for (const log of productLogs) {
       const currentIndex = stationIds.indexOf(log.stationId);
       const nextStationId = stationIds[currentIndex + 1];
-
       if (nextStationId) {
         await tx
           .update(productEntryLogs)
@@ -34,10 +46,10 @@ export async function handleSensorTrigger(variant: string) {
       }
     }
 
-    const firstStationId = stationIds[0];
+    // Insert the new/re-fed product at the specified station
     await tx.insert(productEntryLogs).values({
       plantId,
-      stationId: firstStationId,
+      stationId: startStationId,
       productId: variantId,
       timestamp: new Date(),
     });
