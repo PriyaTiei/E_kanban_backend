@@ -1,0 +1,1 @@
+ALTER TABLE "product_part_exceptions" DROP COLUMN "id";

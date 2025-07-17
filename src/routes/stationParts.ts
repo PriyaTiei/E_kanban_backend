@@ -25,10 +25,10 @@ stationPartsRouter.get('/', async (req, res): Promise<any> => {
         stationName: stations.name,
         partId: stationParts.partId,
         partName: parts.name,
-        productId: stationParts.productId,
-        productName: products.variant, 
-        exceptionProductId: stationParts.exceptionProductId,
-        exceptionProductName: products.variant,
+        allowed_for_all_products: stationParts.allowed_for_all_products,
+        process:stationParts.process,
+        prepLocation: stationParts.prepLocation,
+        supplyLoaction: stationParts.supplyLocation,
         consumptionPerProduct: stationParts.consumptionPerProduct,
         binQuantity: stationParts.binQuantity,
         currentQuantity: stationParts.currentQuantity,
@@ -37,7 +37,6 @@ stationPartsRouter.get('/', async (req, res): Promise<any> => {
       .from(stationParts)
       .leftJoin(stations, eq(stationParts.stationId, stations.id))
       .leftJoin(parts, eq(stationParts.partId, parts.id))
-      .leftJoin(products, eq(stationParts.productId, products.id))
       .where(whereClause)
       .orderBy(asc(stationParts.stationId));
 

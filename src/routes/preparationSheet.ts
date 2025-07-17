@@ -1,6 +1,6 @@
 import express from "express";
 import { db } from "../db/client";
-import { kanbanRequests, stations, parts, products, frozenKanbans, processFreezeState } from "../db/schema";
+import { kanbanRequests, stations, parts, products, frozenKanbans, processFreezeState, stationParts } from "../db/schema";
 import { eq, and, asc, count, sql, inArray } from "drizzle-orm";
 import { KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
@@ -9,10 +9,10 @@ export const preparationSheetRouter = express.Router();
 
 const selectKanbanFields = {
     id: kanbanRequests.id,
-    process: parts.process,
+    process: stationParts.process,
     partId: kanbanRequests.partId,
     partName: parts.name,
-    prepLocation: parts.prepLocation,
+    prepLocation: stationParts.prepLocation,
 }
 
 preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
@@ -30,10 +30,10 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
 
     // query for all unique processes
     const processes = await db
-      .selectDistinct({ process: parts.process })
+      .selectDistinct({ process: stationParts.process })
       .from(kanbanRequests)
-      .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-      .orderBy(asc(parts.process));
+      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.id))
+      .orderBy(asc(stationParts.process));
 
     const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
       
@@ -47,11 +47,11 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
 
     const orderByClause = sql`
       CASE
-        WHEN ${parts.prepLocation} LIKE 'TZ-%' THEN 1
-        WHEN ${parts.prepLocation} LIKE 'LOG-%' THEN 2
+        WHEN ${stationParts.prepLocation} LIKE 'TZ-%' THEN 1
+        WHEN ${stationParts.prepLocation} LIKE 'LOG-%' THEN 2
         ELSE 3
       END,
-      regexp_replace(${parts.prepLocation}, '[^0-9]', '', 'g')::int,
+      regexp_replace(${stationParts.prepLocation}, '[^0-9]', '', 'g')::int,
       ${kanbanRequests.requestedAt}
     `;
 
@@ -62,6 +62,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .from(kanbanRequests)
         .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(baseWhereClause)
         .orderBy(orderByClause);
@@ -87,6 +88,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .innerJoin(kanbanRequests, eq(frozenKanbans.kanbanId, kanbanRequests.id))
         .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(and(eq(frozenKanbans.process, processFilter), baseWhereClause))
         .orderBy(orderByClause);
@@ -99,8 +101,9 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .from(kanbanRequests)
         .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .leftJoin(products, eq(kanbanRequests.productId, products.id))
-        .where(and(baseWhereClause, eq(parts.process, processFilter)))
+        .where(and(baseWhereClause, eq(stationParts.process, processFilter)))
         .orderBy(orderByClause);
 
       return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false});
@@ -204,12 +207,12 @@ preparationSheetRouter.post("/kanbans/freeze", async (req, res): Promise<any> =>
     const whereClause = user.role === "admin" && plantId === null
       ? and(
           eq(kanbanRequests.acknowledgedByLogistics, false),
-          eq(parts.process, process)
+          eq(stationParts.process, process)
         )
       : and(
           eq(kanbanRequests.acknowledgedByLogistics, false),
           eq(kanbanRequests.plantId, plantId!),
-          eq(parts.process, process)
+          eq(stationParts.process, process)
         );
 
     // Check if already frozen
@@ -227,7 +230,7 @@ preparationSheetRouter.post("/kanbans/freeze", async (req, res): Promise<any> =>
     const kanbansToFreeze = await db
       .select({ id: kanbanRequests.id })
       .from(kanbanRequests)
-      .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
       .where(whereClause)
       .orderBy(asc(kanbanRequests.requestedAt));
 

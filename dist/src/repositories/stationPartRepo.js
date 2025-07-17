@@ -94,7 +94,7 @@ class StationPartsRepository {
     static findByComposite(stationId, partId, productId) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const result = yield client_1.db.select().from(schema_1.stationParts).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.stationParts.stationId, stationId), ((0, drizzle_orm_1.eq)(schema_1.stationParts.partId, partId)), ((0, drizzle_orm_1.eq)(schema_1.stationParts.productId, productId))));
+                const result = yield client_1.db.select().from(schema_1.stationParts).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.stationParts.stationId, stationId), ((0, drizzle_orm_1.eq)(schema_1.stationParts.partId, partId))));
                 return { success: true, data: result };
             }
             catch (error) {

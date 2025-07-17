@@ -1,6 +1,6 @@
 import express from "express";
 import { db } from "../db/client";
-import { kanbanRequests, stations, parts, products } from "../db/schema";
+import { kanbanRequests, stations, parts, products, stationParts } from "../db/schema";
 import { eq, and, asc, count, sql, inArray } from "drizzle-orm";
 import { KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
@@ -28,28 +28,29 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
 
     const orderByClause = sql`
       CASE
-        WHEN ${parts.supplyLocation} LIKE 'SA-%' THEN 1
-        WHEN ${parts.supplyLocation} LIKE 'MK1-%' THEN 2
-        WHEN ${parts.supplyLocation} LIKE 'MK2-%' THEN 3
+        WHEN ${stationParts.supplyLocation} LIKE 'SA-%' THEN 1
+        WHEN ${stationParts.supplyLocation} LIKE 'MK1-%' THEN 2
+        WHEN ${stationParts.supplyLocation} LIKE 'MK2-%' THEN 3
         ELSE 4
       END,
-      regexp_replace(${parts.supplyLocation}, '[^0-9]', '', 'g')::int,
-      ${parts.supplyLocation},
+      regexp_replace(${stationParts.supplyLocation}, '[^0-9]', '', 'g')::int,
+      ${stationParts.supplyLocation},
       ${kanbanRequests.acknowledgedAt}
     `;
 
     const kanbans = await db
       .select({
         id: kanbanRequests.id,
-        process: parts.process,
+        process: stationParts.process,
         partId: kanbanRequests.partId,
         partName: parts.name,
-        supplyLocation: parts.supplyLocation,
+        supplyLocation: stationParts.supplyLocation,
         acknowledgedAt: kanbanRequests.acknowledgedAt,
       })
       .from(kanbanRequests)
       .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
       .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
       .leftJoin(products, eq(kanbanRequests.productId, products.id))
       .where(whereClause)
       .orderBy(orderByClause);

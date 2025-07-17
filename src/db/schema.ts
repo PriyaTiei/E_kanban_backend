@@ -1,6 +1,6 @@
-import { pgTable, serial, varchar ,text, integer, timestamp, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar ,text, integer, timestamp, boolean, pgEnum, primaryKey } from "drizzle-orm/pg-core";
 
-export const productVariantEnum = pgEnum("product_variant", ["328", "319", "425"]);
+export const productVariantEnum = pgEnum("product_variant", ["328", "319", "425", "330"]);
 export const userRoleEnum = pgEnum("user_role", ["logistics", "supplier", "admin"]);
 export const kanbanActionTypeEnum = pgEnum("kanban_action_type", ["created", "acknowledged", "fulfilled"]);
 
@@ -24,9 +24,6 @@ export const parts = pgTable("parts", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 50 }).notNull(),
   description: text("description"),
-  process: integer("process"),
-  prepLocation: varchar("prep-location", { length: 50 }),
-  supplyLocation: varchar("supply-location", { length: 50 }),
 });
 
 export const stationParts = pgTable("station_parts", {
@@ -34,13 +31,24 @@ export const stationParts = pgTable("station_parts", {
   plantId: integer("plant_id").references(() => plants.id).notNull().default(1),
   stationId: integer("station_id").references(() => stations.id).notNull(),
   partId: integer("part_id").references(() => parts.id).notNull(),
-  productId: integer("product_id").references(() => products.id),
-  exceptionProductId: integer("exception_product_id").references(() => products.id),
+  allowed_for_all_products : boolean("allowed_for_all_products").default(true).notNull(),
+  process: integer("process"),
+  prepLocation: varchar("prep-location", { length: 50 }),
+  supplyLocation: varchar("supply-location", { length: 50 }),
   consumptionPerProduct: integer("consumption_per_product").notNull(),
   binQuantity: integer("bin_quantity").notNull(),
   currentQuantity: integer("current_quantity").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   updatedBy: integer("updated_by").references(() => users.id),
+});
+
+export const productPartExceptions = pgTable("product_part_exceptions", {
+  productId: integer("product_id").references(() => products.id).notNull(),
+  partId: integer("part_id").references(() => parts.id).notNull(),
+}, (table,) => {
+  return [
+    primaryKey({columns:[table.productId, table.partId]}),
+  ];
 });
 
 export const productEntryLogs = pgTable("product_entry_logs", {

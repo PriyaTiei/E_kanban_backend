@@ -32,27 +32,28 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
             : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.fulfilled, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId));
         const orderByClause = (0, drizzle_orm_1.sql) `
       CASE
-        WHEN ${schema_1.parts.supplyLocation} LIKE 'SA-%' THEN 1
-        WHEN ${schema_1.parts.supplyLocation} LIKE 'MK1-%' THEN 2
-        WHEN ${schema_1.parts.supplyLocation} LIKE 'MK2-%' THEN 3
+        WHEN ${schema_1.stationParts.supplyLocation} LIKE 'SA-%' THEN 1
+        WHEN ${schema_1.stationParts.supplyLocation} LIKE 'MK1-%' THEN 2
+        WHEN ${schema_1.stationParts.supplyLocation} LIKE 'MK2-%' THEN 3
         ELSE 4
       END,
-      regexp_replace(${schema_1.parts.supplyLocation}, '[^0-9]', '', 'g')::int,
-      ${schema_1.parts.supplyLocation},
+      regexp_replace(${schema_1.stationParts.supplyLocation}, '[^0-9]', '', 'g')::int,
+      ${schema_1.stationParts.supplyLocation},
       ${schema_1.kanbanRequests.acknowledgedAt}
     `;
         const kanbans = yield client_1.db
             .select({
             id: schema_1.kanbanRequests.id,
-            process: schema_1.parts.process,
+            process: schema_1.stationParts.process,
             partId: schema_1.kanbanRequests.partId,
             partName: schema_1.parts.name,
-            supplyLocation: schema_1.parts.supplyLocation,
+            supplyLocation: schema_1.stationParts.supplyLocation,
             acknowledgedAt: schema_1.kanbanRequests.acknowledgedAt,
         })
             .from(schema_1.kanbanRequests)
             .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
             .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
+            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
             .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
             .where(whereClause)
             .orderBy(orderByClause);

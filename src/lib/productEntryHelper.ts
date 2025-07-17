@@ -1,8 +1,8 @@
 // src/lib/sensorTriggerHandler.ts
 
 import { db } from "../db/client";
-import { productEntryLogs, kanbanRequests, stationParts } from "../db/schema";
-import { eq, and, or, isNull, ne, desc, gte } from "drizzle-orm";
+import { productEntryLogs, kanbanRequests, stationParts, productPartExceptions } from "../db/schema";
+import { eq, and, or, isNull, ne, desc, gte, sql } from "drizzle-orm";
 import { lookupCache } from "./lookupCache";
 
 export async function handleProductShift(variant: string, refeedStationId?: number) {
@@ -63,15 +63,20 @@ export async function handleProductShift(variant: string, refeedStationId?: numb
           binQuantity: stationParts.binQuantity,
           currentQuantity: stationParts.currentQuantity,
           consumptionPerProduct: stationParts.consumptionPerProduct,
-          productId: stationParts.productId,
           partId: stationParts.partId,
         })
         .from(stationParts)
         .where(
           and(
             eq(stationParts.stationId, log.stationId),
-            or(isNull(stationParts.productId), eq(stationParts.productId, log.productId)),
-            or(isNull(stationParts.exceptionProductId), ne(stationParts.exceptionProductId, log.productId))
+            or(
+              eq(stationParts.allowed_for_all_products, true),
+              sql`EXISTS (
+                SELECT 1 FROM product_part_exceptions
+                WHERE product_part_exceptions.product_id = ${log.productId}
+                AND product_part_exceptions.part_id = station_parts.part_id
+              )`
+            )
           )
         );
 

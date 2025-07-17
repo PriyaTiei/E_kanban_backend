@@ -1,0 +1,1 @@
+ALTER TYPE "public"."product_variant" ADD VALUE '330';

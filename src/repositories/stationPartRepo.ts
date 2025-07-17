@@ -80,7 +80,6 @@ export class StationPartsRepository {
             and(
                 eq(stationParts.stationId, stationId), 
                 (eq(stationParts.partId, partId)),
-                (eq(stationParts.productId, productId))
             ));
         return { success: true, data: result };
         } catch (error) {

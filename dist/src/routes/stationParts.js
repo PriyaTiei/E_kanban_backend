@@ -37,10 +37,10 @@ exports.stationPartsRouter.get('/', (req, res) => __awaiter(void 0, void 0, void
             stationName: schema_1.stations.name,
             partId: schema_1.stationParts.partId,
             partName: schema_1.parts.name,
-            productId: schema_1.stationParts.productId,
-            productName: schema_1.products.variant,
-            exceptionProductId: schema_1.stationParts.exceptionProductId,
-            exceptionProductName: schema_1.products.variant,
+            allowed_for_all_products: schema_1.stationParts.allowed_for_all_products,
+            process: schema_1.stationParts.process,
+            prepLocation: schema_1.stationParts.prepLocation,
+            supplyLoaction: schema_1.stationParts.supplyLocation,
             consumptionPerProduct: schema_1.stationParts.consumptionPerProduct,
             binQuantity: schema_1.stationParts.binQuantity,
             currentQuantity: schema_1.stationParts.currentQuantity,
@@ -49,7 +49,6 @@ exports.stationPartsRouter.get('/', (req, res) => __awaiter(void 0, void 0, void
             .from(schema_1.stationParts)
             .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.stationParts.stationId, schema_1.stations.id))
             .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.stationParts.partId, schema_1.parts.id))
-            .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.stationParts.productId, schema_1.products.id))
             .where(whereClause)
             .orderBy((0, drizzle_orm_1.asc)(schema_1.stationParts.stationId));
         res.json(stationData);
@@ -59,6 +58,7 @@ exports.stationPartsRouter.get('/', (req, res) => __awaiter(void 0, void 0, void
         res.status(500).json({ error: 'Internal Server Error' });
     }
 }));
+// TODO: Implement respective tables update logic
 // CREATE /station-parts
 exports.stationPartsRouter.post("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const user = req.session.user;
@@ -102,6 +102,7 @@ exports.stationPartsRouter.put("/:id", (req, res) => __awaiter(void 0, void 0, v
         return res.status(404).json({ error: result.error });
     }
 }));
+// TODO: Implement respective tables update logic
 // DELETE /station-parts/:id
 exports.stationPartsRouter.delete("/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const user = req.session.user;

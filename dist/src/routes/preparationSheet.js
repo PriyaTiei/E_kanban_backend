@@ -21,10 +21,10 @@ const kanbanHelpers_1 = require("../lib/kanbanHelpers");
 exports.preparationSheetRouter = express_1.default.Router();
 const selectKanbanFields = {
     id: schema_1.kanbanRequests.id,
-    process: schema_1.parts.process,
+    process: schema_1.stationParts.process,
     partId: schema_1.kanbanRequests.partId,
     partName: schema_1.parts.name,
-    prepLocation: schema_1.parts.prepLocation,
+    prepLocation: schema_1.stationParts.prepLocation,
 };
 exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -38,10 +38,10 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
         const processFilter = req.query.process ? Number(req.query.process) : null;
         // query for all unique processes
         const processes = yield client_1.db
-            .selectDistinct({ process: schema_1.parts.process })
+            .selectDistinct({ process: schema_1.stationParts.process })
             .from(schema_1.kanbanRequests)
-            .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-            .orderBy((0, drizzle_orm_1.asc)(schema_1.parts.process));
+            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.id))
+            .orderBy((0, drizzle_orm_1.asc)(schema_1.stationParts.process));
         const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
         // Base where clause for acknowledgedByLogistics and plant scope
         const baseWhereClause = isAdmin && plantId === null
@@ -49,11 +49,11 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
             : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId));
         const orderByClause = (0, drizzle_orm_1.sql) `
       CASE
-        WHEN ${schema_1.parts.prepLocation} LIKE 'TZ-%' THEN 1
-        WHEN ${schema_1.parts.prepLocation} LIKE 'LOG-%' THEN 2
+        WHEN ${schema_1.stationParts.prepLocation} LIKE 'TZ-%' THEN 1
+        WHEN ${schema_1.stationParts.prepLocation} LIKE 'LOG-%' THEN 2
         ELSE 3
       END,
-      regexp_replace(${schema_1.parts.prepLocation}, '[^0-9]', '', 'g')::int,
+      regexp_replace(${schema_1.stationParts.prepLocation}, '[^0-9]', '', 'g')::int,
       ${schema_1.kanbanRequests.requestedAt}
     `;
         if (!processFilter) {
@@ -63,6 +63,7 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
                 .from(schema_1.kanbanRequests)
                 .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
                 .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
+                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
                 .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
                 .where(baseWhereClause)
                 .orderBy(orderByClause);
@@ -84,6 +85,7 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
                 .innerJoin(schema_1.kanbanRequests, (0, drizzle_orm_1.eq)(schema_1.frozenKanbans.kanbanId, schema_1.kanbanRequests.id))
                 .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
                 .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
+                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
                 .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
                 .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.frozenKanbans.process, processFilter), baseWhereClause))
                 .orderBy(orderByClause);
@@ -96,8 +98,9 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
                 .from(schema_1.kanbanRequests)
                 .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
                 .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
+                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
                 .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
-                .where((0, drizzle_orm_1.and)(baseWhereClause, (0, drizzle_orm_1.eq)(schema_1.parts.process, processFilter)))
+                .where((0, drizzle_orm_1.and)(baseWhereClause, (0, drizzle_orm_1.eq)(schema_1.stationParts.process, processFilter)))
                 .orderBy(orderByClause);
             return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: false });
         }
@@ -185,8 +188,8 @@ exports.preparationSheetRouter.post("/kanbans/freeze", (req, res) => __awaiter(v
         }
         const plantId = user.plantId;
         const whereClause = user.role === "admin" && plantId === null
-            ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.parts.process, process))
-            : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId), (0, drizzle_orm_1.eq)(schema_1.parts.process, process));
+            ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.stationParts.process, process))
+            : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId), (0, drizzle_orm_1.eq)(schema_1.stationParts.process, process));
         // Check if already frozen
         const existingFreeze = yield client_1.db
             .select()
@@ -200,7 +203,7 @@ exports.preparationSheetRouter.post("/kanbans/freeze", (req, res) => __awaiter(v
         const kanbansToFreeze = yield client_1.db
             .select({ id: schema_1.kanbanRequests.id })
             .from(schema_1.kanbanRequests)
-            .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
+            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
             .where(whereClause)
             .orderBy((0, drizzle_orm_1.asc)(schema_1.kanbanRequests.requestedAt));
         if (kanbansToFreeze.length === 0) {

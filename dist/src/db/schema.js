@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.settings = exports.kanbanActions = exports.processFreezeState = exports.frozenKanbans = exports.kanbanRequests = exports.users = exports.productEntryLogs = exports.stationParts = exports.parts = exports.stations = exports.plants = exports.products = exports.kanbanActionTypeEnum = exports.userRoleEnum = exports.productVariantEnum = void 0;
+exports.settings = exports.kanbanActions = exports.processFreezeState = exports.frozenKanbans = exports.kanbanRequests = exports.users = exports.productEntryLogs = exports.productPartExceptions = exports.stationParts = exports.parts = exports.stations = exports.plants = exports.products = exports.kanbanActionTypeEnum = exports.userRoleEnum = exports.productVariantEnum = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
-exports.productVariantEnum = (0, pg_core_1.pgEnum)("product_variant", ["328", "319", "425"]);
+exports.productVariantEnum = (0, pg_core_1.pgEnum)("product_variant", ["328", "319", "425", "330"]);
 exports.userRoleEnum = (0, pg_core_1.pgEnum)("user_role", ["logistics", "supplier", "admin"]);
 exports.kanbanActionTypeEnum = (0, pg_core_1.pgEnum)("kanban_action_type", ["created", "acknowledged", "fulfilled"]);
 exports.products = (0, pg_core_1.pgTable)("products", {
@@ -22,22 +22,29 @@ exports.parts = (0, pg_core_1.pgTable)("parts", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
     name: (0, pg_core_1.varchar)("name", { length: 50 }).notNull(),
     description: (0, pg_core_1.text)("description"),
-    process: (0, pg_core_1.integer)("process"),
-    prepLocation: (0, pg_core_1.varchar)("prep-location", { length: 50 }),
-    supplyLocation: (0, pg_core_1.varchar)("supply-location", { length: 50 }),
 });
 exports.stationParts = (0, pg_core_1.pgTable)("station_parts", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
     plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id).notNull().default(1),
     stationId: (0, pg_core_1.integer)("station_id").references(() => exports.stations.id).notNull(),
     partId: (0, pg_core_1.integer)("part_id").references(() => exports.parts.id).notNull(),
-    productId: (0, pg_core_1.integer)("product_id").references(() => exports.products.id),
-    exceptionProductId: (0, pg_core_1.integer)("exception_product_id").references(() => exports.products.id),
+    allowed_for_all_products: (0, pg_core_1.boolean)("allowed_for_all_products").default(true).notNull(),
+    process: (0, pg_core_1.integer)("process"),
+    prepLocation: (0, pg_core_1.varchar)("prep-location", { length: 50 }),
+    supplyLocation: (0, pg_core_1.varchar)("supply-location", { length: 50 }),
     consumptionPerProduct: (0, pg_core_1.integer)("consumption_per_product").notNull(),
     binQuantity: (0, pg_core_1.integer)("bin_quantity").notNull(),
     currentQuantity: (0, pg_core_1.integer)("current_quantity").notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
     updatedBy: (0, pg_core_1.integer)("updated_by").references(() => exports.users.id),
+});
+exports.productPartExceptions = (0, pg_core_1.pgTable)("product_part_exceptions", {
+    productId: (0, pg_core_1.integer)("product_id").references(() => exports.products.id).notNull(),
+    partId: (0, pg_core_1.integer)("part_id").references(() => exports.parts.id).notNull(),
+}, (table) => {
+    return [
+        (0, pg_core_1.primaryKey)({ columns: [table.productId, table.partId] }),
+    ];
 });
 exports.productEntryLogs = (0, pg_core_1.pgTable)("product_entry_logs", {
     id: (0, pg_core_1.serial)("id").primaryKey(),

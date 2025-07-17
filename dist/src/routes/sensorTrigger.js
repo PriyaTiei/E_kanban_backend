@@ -72,11 +72,14 @@ exports.sensorTriggerRouter.post("/gd", (req, res) => __awaiter(void 0, void 0, 
                     binQuantity: schema_1.stationParts.binQuantity,
                     currentQuantity: schema_1.stationParts.currentQuantity,
                     consumptionPerProduct: schema_1.stationParts.consumptionPerProduct,
-                    productId: schema_1.stationParts.productId,
                     partId: schema_1.stationParts.partId,
                 })
                     .from(schema_1.stationParts)
-                    .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.stationParts.stationId, log.stationId), (0, drizzle_orm_1.or)((0, drizzle_orm_1.isNull)(schema_1.stationParts.productId), (0, drizzle_orm_1.eq)(schema_1.stationParts.productId, log.productId)), (0, drizzle_orm_1.or)((0, drizzle_orm_1.isNull)(schema_1.stationParts.exceptionProductId), (0, drizzle_orm_1.ne)(schema_1.stationParts.exceptionProductId, log.productId))));
+                    .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.stationParts.stationId, log.stationId), (0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.stationParts.allowed_for_all_products, true), (0, drizzle_orm_1.sql) `EXISTS (
+                  SELECT 1 FROM product_part_exceptions
+                  WHERE product_part_exceptions.product_id = ${log.productId}
+                  AND product_part_exceptions.part_id = station_parts.part_id
+                )`)));
                 for (const part of parts) {
                     let updatedQuantity;
                     let remainder;
