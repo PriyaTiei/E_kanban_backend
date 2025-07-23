@@ -27,6 +27,7 @@ const parts_1 = require("./routes/parts");
 const express_session_1 = __importDefault(require("express-session"));
 const userAuth_1 = require("./routes/userAuth");
 const kanbanRequestsLog_1 = require("./routes/kanbanRequestsLog");
+const amruthUpdate_1 = require("./routes/amruthUpdate");
 dotenv_1.default.config();
 const HOST = process.env.APP_HOST;
 const devMode = process.env.NODE_ENV === "development";
@@ -63,6 +64,7 @@ function start() {
         // Initialize cache
         yield lookupCache_1.lookupCache.initialize();
         // Public routes
+        app.use('/supply', amruthUpdate_1.amruthUpdateRouter);
         app.use("/sensor-trigger", sensorTrigger_1.sensorTriggerRouter);
         app.use("/auth", userAuth_1.userAuthRouter); // Allow login/logout/session check without auth
         // Auth middleware for all other routes

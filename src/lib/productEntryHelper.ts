@@ -1,8 +1,6 @@
-// src/lib/sensorTriggerHandler.ts
-
 import { db } from "../db/client";
-import { productEntryLogs, kanbanRequests, stationParts, productPartExceptions } from "../db/schema";
-import { eq, and, or, isNull, ne, desc, gte, sql } from "drizzle-orm";
+import { productEntryLogs, kanbanRequests, stationParts } from "../db/schema";
+import { eq, and, or, desc, gte, sql } from "drizzle-orm";
 import { lookupCache } from "./lookupCache";
 
 export async function handleProductShift(variant: string, refeedStationId?: number) {
@@ -95,7 +93,12 @@ export async function handleProductShift(variant: string, refeedStationId?: numb
               updatedAt: new Date(),
             })
             .where(eq(stationParts.id, part.id));
-
+          
+          // TODO: Remove this condition after bin matching.
+          const stationName = lookupCache.getStationName(log.stationId);
+          if(!stationName.startsWith("BS-"))
+            continue;
+      
           await tx.insert(kanbanRequests).values({
             plantId: plantId,
             stationId: log.stationId,

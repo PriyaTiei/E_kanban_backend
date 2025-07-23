@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc",
-    "worker": "ts-node src/scripts/worker/productEntryWorker.ts",
+    "entry_worker": "ts-node src/scripts/worker/productEntryWorker.ts",
+    "seed": "ts-node src/scripts/seedExcel.ts",
+    "update_worker": "ts-node src/scripts/worker/supplysheetUpdateWorker.ts",
     "migrate": "npx drizzle-kit push",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

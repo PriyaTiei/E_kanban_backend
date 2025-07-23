@@ -13,6 +13,7 @@ import { partsRouter } from "./routes/parts";
 import session from "express-session";
 import { userAuthRouter } from "./routes/userAuth";
 import { kanbanRequestsLogRouter } from "./routes/kanbanRequestsLog";
+import { amruthUpdateRouter } from "./routes/amruthUpdate";
 
 dotenv.config();
 
@@ -54,6 +55,7 @@ async function start() {
     await lookupCache.initialize();
 
     // Public routes
+    app.use('/supply', amruthUpdateRouter);
     app.use("/sensor-trigger", sensorTriggerRouter);
     app.use("/auth", userAuthRouter); // Allow login/logout/session check without auth
 

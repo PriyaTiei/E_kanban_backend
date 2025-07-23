@@ -36,18 +36,24 @@ class LookupCache {
     return id;
   }
 
+  getStationName(id: number) {
+    const station = this.stationSequence.find((s) => s.id === id);
+    if (!station) throw new Error(`Unknown station ID: ${id}`);
+    return station.name;
+  }
+
   getStationSequence() {
     return this.stationSequence.map((s) => s.id);
   }
 
   getPartId(name: string) {
-    const id = this.parts.get(name);
+    const id = this.parts.get(String(name));
     if (!id) throw new Error(`Unknown part: ${name}`);
     return id;
   }
 
   getProductId(variant: string) {
-    const id = this.products.get(variant);
+    const id = this.products.get(String(variant));
     if (!id) throw new Error(`Unknown product variant: ${variant}`);
     return id;
   }

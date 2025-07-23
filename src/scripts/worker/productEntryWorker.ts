@@ -8,7 +8,7 @@ import { lookupCache } from '../../lib/lookupCache';
 dotenv.config();
 
 const API_URL = process.env.PRODUCT_ENTRY_API;
-const BEARER_TOKEN = process.env.PRODUCT_ENTRY_API_TOKEN;
+const BEARER_TOKEN = process.env.AMRUTH_API_TOKEN;
 const POLL_INTERVAL_MS = 5000;
 const SETTING_KEY = "last_processed_timestamp";
 
