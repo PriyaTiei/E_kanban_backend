@@ -23,7 +23,7 @@ export async function deleteKanban(req:Request, res:Response): Promise<Response>
     try {
         const deleted = await db
         .delete(kanbanRequests)
-        .where(inArray(kanbanRequests.plantId, kanbanIds))
+        .where(inArray(kanbanRequests.id, kanbanIds))
         .returning();
 
         if (deleted.length === 0) {

@@ -1,5 +1,3 @@
-// src/lib/settingsService.ts
-
 import { db } from "../db/client";
 import { settings } from "../db/schema";
 import { eq } from "drizzle-orm";

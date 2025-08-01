@@ -84,7 +84,6 @@ userAuthRouter.post(
 userAuthRouter.get(
   "/me",
   (req: Request, res: Response): void => {
-    console.log("User session in /me:", req.session.user);
 
     if (req.session.user) {
       res.json(req.session.user);

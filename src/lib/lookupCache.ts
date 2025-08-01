@@ -1,3 +1,4 @@
+import { isNotNull } from "drizzle-orm";
 import { db } from "../db/client";
 import { parts, plants, products, stations } from "../db/schema";
 
@@ -12,7 +13,7 @@ class LookupCache {
     const [plantsTable, stationsTable, partsTable, productsTable] = await Promise.all([
       db.select().from(plants),
       db.select({ id: stations.id, name: stations.name }).from(stations),
-      db.select({ id: parts.id, name: parts.name }).from(parts),
+      db.select({ id: parts.id, partId: parts.partId }).from(parts).where(isNotNull(parts.partId)),
       db.select({ id: products.id, variant: products.variant }).from(products),
     ]);
 
@@ -20,8 +21,8 @@ class LookupCache {
 
     plantsTable.forEach((p) => this.plants.set(p.name, p.id));
     stationsTable.forEach((s) => this.stations.set(s.name, s.id));
-    partsTable.forEach((p) => this.parts.set(p.name, p.id));
-    productsTable.forEach((p) => this.products.set(p.variant, p.id));
+    partsTable.forEach((p) => this.parts.set(p.partId!, p.id));
+    productsTable.forEach((p) => this.products.set(p.variant, p.id));    
   }
 
   getPlantId(name: string) {

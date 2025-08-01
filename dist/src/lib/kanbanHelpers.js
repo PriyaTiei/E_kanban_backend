@@ -30,7 +30,7 @@ function deleteKanban(req, res) {
         try {
             const deleted = yield client_1.db
                 .delete(schema_1.kanbanRequests)
-                .where((0, drizzle_orm_1.inArray)(schema_1.kanbanRequests.plantId, kanbanIds))
+                .where((0, drizzle_orm_1.inArray)(schema_1.kanbanRequests.id, kanbanIds))
                 .returning();
             if (deleted.length === 0) {
                 return res.status(404).json({ message: "Kanban not found" });

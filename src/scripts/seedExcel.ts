@@ -1,19 +1,19 @@
-// import * as XLSX from "xlsx";
-// import { db } from "../db/client";
-// import { parts, productPartExceptions, products, stationParts, stations } from "../db/schema";
-// import { lookupCache } from "../lib/lookupCache";
-// import { eq } from "drizzle-orm";
+import * as XLSX from "xlsx";
+import { db } from "../db/client";
+import { parts, productPartExceptions, products, stationParts, stations } from "../db/schema";
+import { lookupCache } from "../lib/lookupCache";
+import { eq } from "drizzle-orm";
 
-// const workbook = XLSX.readFile("/home/tnga_iot/shiva/E_kanban_GD/E_kanban_backend/src/data/seedData.xlsx");
+const workbook = XLSX.readFile("/home/tnga_iot/shiva/E_kanban_GD/E_kanban_backend/src/data/seedData.xlsx");
 
-// type SheetRow = Record<string, any>;
+type SheetRow = Record<string, any>;
 
-// function parseSheet(sheetName: string): SheetRow[] {
-//   const sheet = workbook.Sheets[sheetName];
-//   return XLSX.utils.sheet_to_json(sheet);
-// }
+function parseSheet(sheetName: string): SheetRow[] {
+  const sheet = workbook.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(sheet);
+}
 
-// async function seed() {
+async function seed() {
   
   // 1. Products
   // const productRows = parseSheet("products");
@@ -28,15 +28,17 @@
   //   )));
   
 
-  // // 3. Parts
-  // const partRows = parseSheet("parts");
-  // await db.insert(parts).values(
-  //   partRows.map((row) => ({
-  //     name: row.name,
-  //     description: row.description ?? null,
-  // })));
+  // 3. Parts
+  const partRows = parseSheet("parts");
+  for (const row of partRows) {
+    await db.update(parts).set({
+      name: row.name,
+      partId: row.partId || null,
+      partNumber: row.partNumber || null,
+    }).where(eq(parts.partId, row.partId));
+  }
 
-  // 4. Station Parts
+  // // 4. Station Parts
   // await lookupCache.initialize();
   // const stationPartRows = parseSheet("stationParts");
   
@@ -63,7 +65,7 @@
 //     }))
 //   );
 
-//   console.log("All data updated successfully.");
-// }
+  console.log("All data updated successfully.");
+}
 
-// seed().catch(console.error);
+seed().catch(console.error);

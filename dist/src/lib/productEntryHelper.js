@@ -1,5 +1,4 @@
 "use strict";
-// src/lib/sensorTriggerHandler.ts
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -21,6 +20,7 @@ function handleProductShift(variant, refeedStationId) {
         const gdPlantName = "GD";
         const plantId = lookupCache_1.lookupCache.getPlantId(gdPlantName);
         const stationIds = lookupCache_1.lookupCache.getStationSequence();
+        console.log("Station IDs:", stationIds);
         // If refeedStationId is provided, use it; otherwise, use the first station
         const startStationId = refeedStationId !== null && refeedStationId !== void 0 ? refeedStationId : stationIds[0];
         const startIndex = stationIds.indexOf(startStationId);
@@ -87,6 +87,12 @@ function handleProductShift(variant, refeedStationId) {
                             updatedAt: new Date(),
                         })
                             .where((0, drizzle_orm_1.eq)(schema_1.stationParts.id, part.id));
+                        // TODO: Remove this condition after bin matching.
+                        const stationName = lookupCache_1.lookupCache.getStationName(log.stationId);
+                        if (!stationName.startsWith("BS-")) {
+                            console.log("stationName:", stationName);
+                            continue;
+                        }
                         yield tx.insert(schema_1.kanbanRequests).values({
                             plantId: plantId,
                             stationId: log.stationId,

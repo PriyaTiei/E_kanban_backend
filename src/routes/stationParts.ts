@@ -38,7 +38,7 @@ stationPartsRouter.get('/', async (req, res): Promise<any> => {
       .leftJoin(stations, eq(stationParts.stationId, stations.id))
       .leftJoin(parts, eq(stationParts.partId, parts.id))
       .where(whereClause)
-      .orderBy(asc(stationParts.stationId));
+      .orderBy(asc(stationParts.stationId));      
 
     res.json(stationData);
   } catch (error) {

@@ -3,6 +3,8 @@
 // import bcrypt from "bcrypt";
 
 // async function seedUsers() {
+//     console.log("Seeding users...");
+    
 //   const userData = [
 //     {
 //       username: "gd_logistics",

@@ -7,6 +7,7 @@
     "build": "tsc",
     "entry_worker": "ts-node src/scripts/worker/productEntryWorker.ts",
     "seed": "ts-node src/scripts/seedExcel.ts",
+    "seed_users": "ts-node src/scripts/seedUsers.ts",
     "update_worker": "ts-node src/scripts/worker/supplysheetUpdateWorker.ts",
     "migrate": "npx drizzle-kit push",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -19,18 +20,23 @@
     "@types/node-fetch": "^2.6.12",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.44.1",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "express-session": "^1.18.1",
+    "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "strip-bom-stream": "^5.0.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.2",
     "@types/express-session": "^1.18.2",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.15.29",
     "@types/pg": "^8.15.4",
     "drizzle-kit": "^0.31.4",

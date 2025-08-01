@@ -82,7 +82,6 @@ exports.userAuthRouter.post("/logout", (req, res) => {
     });
 });
 exports.userAuthRouter.get("/me", (req, res) => {
-    console.log("User session in /me:", req.session.user);
     if (req.session.user) {
         res.json(req.session.user);
         return;

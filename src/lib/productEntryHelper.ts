@@ -96,8 +96,10 @@ export async function handleProductShift(variant: string, refeedStationId?: numb
           
           // TODO: Remove this condition after bin matching.
           const stationName = lookupCache.getStationName(log.stationId);
-          if(!stationName.startsWith("BS-"))
+          if(!stationName.startsWith("BS-")){
+            console.log("stationName:", stationName);
             continue;
+          }
       
           await tx.insert(kanbanRequests).values({
             plantId: plantId,

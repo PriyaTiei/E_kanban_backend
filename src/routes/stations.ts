@@ -18,6 +18,7 @@ stationsRouter.get('/', async (req, res): Promise<any> => {
       : eq(stations.plantId, plantId!);
 
     const stationDetails = await db.select().from(stations).where(whereClause).orderBy(stations.id);
+    
     res.json(stationDetails);
   } catch (error) {
     console.error('Failed to fetch stations:', error);

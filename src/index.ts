@@ -14,6 +14,7 @@ import session from "express-session";
 import { userAuthRouter } from "./routes/userAuth";
 import { kanbanRequestsLogRouter } from "./routes/kanbanRequestsLog";
 import { amruthUpdateRouter } from "./routes/amruthUpdate";
+import { uploadChunks } from "./routes/fileUpload";
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ const allowedClients = JSON.parse(process.env.ALLOWED_CLIENTS || "[]");
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl)
+    
     if (!origin) return callback(null, true);
     if (allowedClients.includes(origin)) {
       return callback(null, true);
@@ -61,15 +63,15 @@ async function start() {
 
     // Auth middleware for all other routes
     app.use((req, res, next) => {
-      console.log("Request Route:", req.originalUrl);
-      console.log("User session in middleware:", req.session.user);
-
+      
       if (req.session.user) {
         return next();
       }
+      console.log("session user: ", req.session.user);
+      console.log("Request Route:", req.originalUrl);
       res.status(401).json({ error: "Not authenticated" });
     });
-
+    
     // Protected routes
     app.use("/preparation-sheet", preparationSheetRouter);
     app.use("/supply-sheet", supplySheetRouter);
@@ -79,6 +81,7 @@ async function start() {
     app.use('/stations', stationsRouter);
     app.use('/parts', partsRouter);
     app.use('/kanban-logs', kanbanRequestsLogRouter);
+    app.use('/upload', uploadChunks);
 
     // Start server
     app.listen(PORT, () => {

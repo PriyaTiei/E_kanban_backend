@@ -70,7 +70,6 @@ function start() {
         // Auth middleware for all other routes
         app.use((req, res, next) => {
             console.log("Request Route:", req.originalUrl);
-            console.log("User session in middleware:", req.session.user);
             if (req.session.user) {
                 return next();
             }
