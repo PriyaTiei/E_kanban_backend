@@ -28,9 +28,9 @@ amruthUpdateRouter.get("/kanbans", async (req, res): Promise<any> => {
       .select({
         id: kanbanRequests.id,
         process: stationParts.process,
-        partId: kanbanRequests.partId,
+        partId: parts.partId,
         partName: parts.name,
-        partNumber: parts.name,
+        partNumber: parts.partNumber,
         boxQty: stationParts.binQuantity,
         supplyLocation: stationParts.supplyLocation,
         sequenceNo: kanbanRequests.id

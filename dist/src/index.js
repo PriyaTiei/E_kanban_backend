@@ -28,6 +28,7 @@ const express_session_1 = __importDefault(require("express-session"));
 const userAuth_1 = require("./routes/userAuth");
 const kanbanRequestsLog_1 = require("./routes/kanbanRequestsLog");
 const amruthUpdate_1 = require("./routes/amruthUpdate");
+const fileUpload_1 = require("./routes/fileUpload");
 dotenv_1.default.config();
 const HOST = process.env.APP_HOST;
 const devMode = process.env.NODE_ENV === "development";
@@ -69,10 +70,11 @@ function start() {
         app.use("/auth", userAuth_1.userAuthRouter); // Allow login/logout/session check without auth
         // Auth middleware for all other routes
         app.use((req, res, next) => {
-            console.log("Request Route:", req.originalUrl);
             if (req.session.user) {
                 return next();
             }
+            console.log("session user: ", req.session.user);
+            console.log("Request Route:", req.originalUrl);
             res.status(401).json({ error: "Not authenticated" });
         });
         // Protected routes
@@ -84,6 +86,7 @@ function start() {
         app.use('/stations', stations_1.stationsRouter);
         app.use('/parts', parts_1.partsRouter);
         app.use('/kanban-logs', kanbanRequestsLog_1.kanbanRequestsLogRouter);
+        app.use('/upload', fileUpload_1.uploadChunks);
         // Start server
         app.listen(PORT, () => {
             console.log(`Server listening on http://${HOST}:${PORT}`);

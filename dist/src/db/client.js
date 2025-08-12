@@ -49,4 +49,12 @@ const pool = new pg_1.Pool({
     database: process.env.DB_NAME,
     port: Number(process.env.DB_PORT) || 5432,
 });
-exports.db = (0, node_postgres_1.drizzle)(pool, { schema });
+const testPool = new pg_1.Pool({
+    host: process.env.TEST_DB_HOST,
+    user: process.env.TEST_DB_USER,
+    password: process.env.TEST_DB_PASSWORD,
+    database: process.env.TEST_DB_NAME,
+    port: Number(process.env.TEST_DB_PORT) || 5432,
+});
+const devMode = process.env.NODE_ENV === "development";
+exports.db = devMode ? (0, node_postgres_1.drizzle)(testPool, { schema }) : (0, node_postgres_1.drizzle)(pool, { schema });

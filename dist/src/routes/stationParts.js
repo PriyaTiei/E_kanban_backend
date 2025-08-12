@@ -36,6 +36,7 @@ exports.stationPartsRouter.get('/', (req, res) => __awaiter(void 0, void 0, void
             stationId: schema_1.stationParts.stationId,
             stationName: schema_1.stations.name,
             partId: schema_1.stationParts.partId,
+            partIdNo: schema_1.parts.partId,
             partName: schema_1.parts.name,
             allowed_for_all_products: schema_1.stationParts.allowed_for_all_products,
             process: schema_1.stationParts.process,

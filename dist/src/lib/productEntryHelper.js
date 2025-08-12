@@ -20,7 +20,6 @@ function handleProductShift(variant, refeedStationId) {
         const gdPlantName = "GD";
         const plantId = lookupCache_1.lookupCache.getPlantId(gdPlantName);
         const stationIds = lookupCache_1.lookupCache.getStationSequence();
-        console.log("Station IDs:", stationIds);
         // If refeedStationId is provided, use it; otherwise, use the first station
         const startStationId = refeedStationId !== null && refeedStationId !== void 0 ? refeedStationId : stationIds[0];
         const startIndex = stationIds.indexOf(startStationId);

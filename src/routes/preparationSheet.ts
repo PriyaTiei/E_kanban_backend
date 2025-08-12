@@ -2,7 +2,7 @@ import express from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products, frozenKanbans, processFreezeState, stationParts } from "../db/schema";
 import { eq, and, asc, count, sql, inArray } from "drizzle-orm";
-import { KanbanModifyRequest } from "../lib/types";
+import { KanbanEntry, KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
 
 export const preparationSheetRouter = express.Router();
@@ -11,6 +11,7 @@ const selectKanbanFields = {
     id: kanbanRequests.id,
     process: stationParts.process,
     partId: kanbanRequests.partId,
+    partIdNo: parts.partId,
     partName: parts.name,
     prepLocation: stationParts.prepLocation,
 }
@@ -32,11 +33,13 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     const processes = await db
       .selectDistinct({ process: stationParts.process })
       .from(kanbanRequests)
-      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.id))
+      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
       .orderBy(asc(stationParts.process));
 
     const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
-      
+
+    console.log("Unique processes:", uniqueProcesses);
+    
     // Base where clause for acknowledgedByLogistics and plant scope
     const baseWhereClause = isAdmin && plantId === null
       ? eq(kanbanRequests.acknowledgedByLogistics, false)

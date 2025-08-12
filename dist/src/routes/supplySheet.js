@@ -46,6 +46,7 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
             id: schema_1.kanbanRequests.id,
             process: schema_1.stationParts.process,
             partId: schema_1.kanbanRequests.partId,
+            partIdNo: schema_1.parts.partId,
             partName: schema_1.parts.name,
             supplyLocation: schema_1.stationParts.supplyLocation,
             acknowledgedAt: schema_1.kanbanRequests.acknowledgedAt,

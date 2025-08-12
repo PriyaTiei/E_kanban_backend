@@ -23,6 +23,7 @@ const selectKanbanFields = {
     id: schema_1.kanbanRequests.id,
     process: schema_1.stationParts.process,
     partId: schema_1.kanbanRequests.partId,
+    partIdNo: schema_1.parts.partId,
     partName: schema_1.parts.name,
     prepLocation: schema_1.stationParts.prepLocation,
 };
@@ -40,9 +41,10 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
         const processes = yield client_1.db
             .selectDistinct({ process: schema_1.stationParts.process })
             .from(schema_1.kanbanRequests)
-            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.id))
+            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
             .orderBy((0, drizzle_orm_1.asc)(schema_1.stationParts.process));
         const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
+        console.log("Unique processes:", uniqueProcesses);
         // Base where clause for acknowledgedByLogistics and plant scope
         const baseWhereClause = isAdmin && plantId === null
             ? (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false)

@@ -26,6 +26,7 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
         stationId: kanbanRequests.stationId,
         stationName: stations.name,
         partId: kanbanRequests.partId,
+        partIdNo: parts.partId,
         partName: parts.name,
         productId: kanbanRequests.productId,
         productName: products.variant,

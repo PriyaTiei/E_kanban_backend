@@ -36,9 +36,9 @@ exports.amruthUpdateRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 
             .select({
             id: schema_1.kanbanRequests.id,
             process: schema_1.stationParts.process,
-            partId: schema_1.kanbanRequests.partId,
+            partId: schema_1.parts.partId,
             partName: schema_1.parts.name,
-            partNumber: schema_1.parts.name,
+            partNumber: schema_1.parts.partNumber,
             boxQty: schema_1.stationParts.binQuantity,
             supplyLocation: schema_1.stationParts.supplyLocation,
             sequenceNo: schema_1.kanbanRequests.id

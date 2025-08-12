@@ -43,6 +43,7 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         id: kanbanRequests.id,
         process: stationParts.process,
         partId: kanbanRequests.partId,
+        partIdNo: parts.partId,
         partName: parts.name,
         supplyLocation: stationParts.supplyLocation,
         acknowledgedAt: kanbanRequests.acknowledgedAt,

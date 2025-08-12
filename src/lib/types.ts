@@ -27,3 +27,16 @@ export interface ProductEntryResponse {
     limit: number;
   }
 }
+
+export interface KanbanEntry {
+  id: number;
+  plantId: number;
+  stationId: number;
+  partId: number;
+  productId: number;
+  requestedAt: string;
+  acknowledgedByLogistics?: boolean;
+  acknowledgedAt?: string;
+  fulfilled?: boolean;
+  fulfilledAt?: string;
+}

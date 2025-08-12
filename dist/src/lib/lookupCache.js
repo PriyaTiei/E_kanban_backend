@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.lookupCache = void 0;
+const drizzle_orm_1 = require("drizzle-orm");
 const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
 class LookupCache {
@@ -25,13 +26,13 @@ class LookupCache {
             const [plantsTable, stationsTable, partsTable, productsTable] = yield Promise.all([
                 client_1.db.select().from(schema_1.plants),
                 client_1.db.select({ id: schema_1.stations.id, name: schema_1.stations.name }).from(schema_1.stations),
-                client_1.db.select({ id: schema_1.parts.id, name: schema_1.parts.name }).from(schema_1.parts),
+                client_1.db.select({ id: schema_1.parts.id, partId: schema_1.parts.partId }).from(schema_1.parts).where((0, drizzle_orm_1.isNotNull)(schema_1.parts.partId)),
                 client_1.db.select({ id: schema_1.products.id, variant: schema_1.products.variant }).from(schema_1.products),
             ]);
             this.stationSequence = stationsTable.sort((a, b) => a.id - b.id);
             plantsTable.forEach((p) => this.plants.set(p.name, p.id));
             stationsTable.forEach((s) => this.stations.set(s.name, s.id));
-            partsTable.forEach((p) => this.parts.set(p.name, p.id));
+            partsTable.forEach((p) => this.parts.set(p.partId, p.id));
             productsTable.forEach((p) => this.products.set(p.variant, p.id));
         });
     }
