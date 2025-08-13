@@ -71,7 +71,7 @@ export const kanbanRequests = pgTable("kanban_requests", {
   plantId: integer("plant_id").references(() => plants.id, { onDelete: "cascade" }).notNull().default(1),
   stationId: integer("station_id").references(() => stations.id, { onDelete: "cascade" }).notNull(),
   partId: integer("part_id").references(() => parts.id, { onDelete: "cascade" }).notNull(),
-  productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }),
   requestedAt: timestamp("requested_at", { withTimezone: true }).defaultNow().notNull(),
   acknowledgedByLogistics: boolean("acknowledged_by_logistics").default(false).notNull(),
   acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),

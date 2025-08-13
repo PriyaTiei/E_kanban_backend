@@ -2,8 +2,9 @@ import express from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products, frozenKanbans, processFreezeState, stationParts } from "../db/schema";
 import { eq, and, asc, count, sql, inArray } from "drizzle-orm";
-import { KanbanEntry, KanbanModifyRequest } from "../lib/types";
+import { KanbanCreateRequest, KanbanEntry, KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
+import { lookupCache } from "../lib/lookupCache";
 
 export const preparationSheetRouter = express.Router();
 
@@ -305,5 +306,51 @@ preparationSheetRouter.post("/kanbans/unfreeze", async (req, res): Promise<any> 
   } catch (err: any) {
     console.error("Error unfreezing process:", err);
     return res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});
+
+preparationSheetRouter.post("/kanbans/create", async (req, res): Promise<any> => {
+  const user = req.session.user;
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const isAdmin = user.role === "admin";
+  if (!isAdmin) {
+    return res.status(403).json({ error: "Forbidden: Only admins can create kanbans" });
+  }
+
+  const data:KanbanCreateRequest[] = req.body;
+  try {
+    if (data.length === 0) {
+      return res.status(400).json({ error: "At least one kanban entry is required" });
+    }
+
+    const kanbanEntry: Partial<KanbanEntry>[] = data.map(entry => {
+      const stationId = lookupCache.getStationId(entry.station);
+      return entry.parts.map(part => {
+        const partId = lookupCache.getPartId(part);
+        return {
+          stationId,
+          partId,
+      }});
+    }).flat();
+
+    // Create new kanban request
+    const newKanban = await db.insert(kanbanRequests).values(
+      kanbanEntry.map((entry) => ({
+        // plantId: entry.plantId,
+        stationId: entry.stationId!,
+        partId: entry.partId!,
+        // productId: entry.productId,
+        // acknowledgedByLogistics: entry.acknowledgedByLogistics || null,
+        // acknowledgedAt: entry.acknowledgedAt || null,
+        // fulfilled: entry.fulfilled || null,
+        // fulfilledAt: entry.fulfilledAt || null,
+      }))).returning();
+
+    return res.status(201).json({ message: "Kanban created successfully", kanban: newKanban[0] });
+  } catch (error) {
+    console.error("Failed to create kanban:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });

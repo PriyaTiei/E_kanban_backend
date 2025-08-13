@@ -40,3 +40,8 @@ export interface KanbanEntry {
   fulfilled?: boolean;
   fulfilledAt?: string;
 }
+
+export interface KanbanCreateRequest {
+  station: string
+  parts: string[]
+}
