@@ -11,6 +11,7 @@ export const products = pgTable("products", {
 export const plants = pgTable("plants", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 100 }).notNull().unique(),
+  plantId: integer("plant_id").unique(),
 });
 
 export const stations = pgTable("stations", {

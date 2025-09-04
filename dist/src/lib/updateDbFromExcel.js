@@ -20,7 +20,7 @@ const drizzle_orm_1 = require("drizzle-orm");
 const lookupCache_1 = require("./lookupCache");
 const updateDbFromExcel = (filePath) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
-    lookupCache_1.lookupCache.initialize();
+    yield lookupCache_1.lookupCache.initialize();
     try {
         const workbook = new exceljs_1.default.Workbook();
         yield workbook.xlsx.readFile(filePath);
@@ -152,6 +152,7 @@ const updateDbFromExcel = (filePath) => __awaiter(void 0, void 0, void 0, functi
                 ;
                 const station = String(row.getCell(headerMap["stationId"]).value);
                 const part = String(row.getCell(headerMap["partId"]).value);
+                yield lookupCache_1.lookupCache.initialize();
                 const stationId = lookupCache_1.lookupCache.getStationId(station);
                 const partId = lookupCache_1.lookupCache.getPartId(part);
                 const key = `${stationId}_${partId}`;
@@ -239,7 +240,7 @@ const updateDbFromExcel = (filePath) => __awaiter(void 0, void 0, void 0, functi
         return { success: true };
     }
     catch (error) {
-        throw error;
+        console.error(error);
     }
 });
 exports.updateDbFromExcel = updateDbFromExcel;

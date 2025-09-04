@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products, plants } from "../db/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, count } from "drizzle-orm";
 
 export const kanbanRequestsLogRouter = express.Router();
 
@@ -13,6 +13,11 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
     }
     const isAdmin = user.role === "admin";
     const plantId = user.plantId;
+
+    // pagination details from query params, e.g., /kanbans?page=1&limit=20
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
+    const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
+    const offset = (page - 1) * limit;
 
     const whereClause = isAdmin && plantId === null
       ? sql`1=1`
@@ -42,9 +47,18 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
       .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
       .leftJoin(products, eq(kanbanRequests.productId, products.id))
       .where(whereClause)
-      .orderBy(desc(kanbanRequests.requestedAt));
+      .orderBy(desc(kanbanRequests.requestedAt))
+      .limit(limit)
+      .offset(offset);
 
-    return res.json(logs);
+      const totalLogs = await db.
+      select({ total: count() })
+      .from(kanbanRequests)
+      .where(whereClause);
+
+      const totalPages = Math.ceil((totalLogs[0]?.total ?? 0) / limit);
+
+    return res.json({logs, totalPages});
   } catch (error) {
     console.error("Error fetching kanban requests log:", error);
     return res.status(500).json({ error: "Internal server error" });

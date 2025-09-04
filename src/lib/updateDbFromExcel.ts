@@ -6,7 +6,7 @@ import { lookupCache } from './lookupCache';
 
 
 export const updateDbFromExcel = async (filePath: string) => {
-  lookupCache.initialize();
+  await lookupCache.initialize();
   try {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
@@ -142,6 +142,7 @@ export const updateDbFromExcel = async (filePath: string) => {
 
         const station = String(row.getCell(headerMap["stationId"]).value);
         const part = String(row.getCell(headerMap["partId"]).value);
+        await lookupCache.initialize();
         const stationId = lookupCache.getStationId(station);
         const partId = lookupCache.getPartId(part);
         const key = `${stationId}_${partId}`;
@@ -233,6 +234,6 @@ export const updateDbFromExcel = async (filePath: string) => {
 
     return { success: true };
   } catch (error) {
-    throw error;
+    console.error(error);
   }
 };

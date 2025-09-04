@@ -29,25 +29,28 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
 
     // Process filter from query params, e.g., /kanbans?process=1
     const processFilter = req.query.process ? Number(req.query.process) : null;
+    // pagination details from query params, e.g., /kanbans?page=1&limit=20
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
+    const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
+    const offset = (page - 1) * limit;
 
+    
+    // Base where clause for acknowledgedByLogistics and plant scope
+    const baseWhereClause = isAdmin && plantId === null
+    ? eq(kanbanRequests.acknowledgedByLogistics, false)
+    : and(
+      eq(kanbanRequests.acknowledgedByLogistics, false),
+      eq(kanbanRequests.plantId, plantId!)
+    );
     // query for all unique processes
     const processes = await db
       .selectDistinct({ process: stationParts.process })
       .from(kanbanRequests)
       .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+      .where(baseWhereClause)
       .orderBy(asc(stationParts.process));
 
     const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
-
-    console.log("Unique processes:", uniqueProcesses);
-    
-    // Base where clause for acknowledgedByLogistics and plant scope
-    const baseWhereClause = isAdmin && plantId === null
-      ? eq(kanbanRequests.acknowledgedByLogistics, false)
-      : and(
-          eq(kanbanRequests.acknowledgedByLogistics, false),
-          eq(kanbanRequests.plantId, plantId!)
-        );
 
     const orderByClause = sql`
       CASE
@@ -56,7 +59,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         ELSE 3
       END,
       regexp_replace(${stationParts.prepLocation}, '[^0-9]', '', 'g')::int,
-      ${kanbanRequests.requestedAt}
+      ${kanbanRequests.partId}
     `;
 
     if (!processFilter) {
@@ -69,9 +72,18 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(baseWhereClause)
-        .orderBy(orderByClause);
+        .orderBy(orderByClause)
+        .limit(limit)
+        .offset(offset);
 
-      return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false});
+        const total = await db
+        .select({ total: count() })
+        .from(kanbanRequests)
+        .where(baseWhereClause);
+
+        const totalPages = Math.ceil((total[0]?.total ?? 0) / limit);
+
+      return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false, totalPages});
     }
 
     // Check if this process is frozen
@@ -95,9 +107,19 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(and(eq(frozenKanbans.process, processFilter), baseWhereClause))
-        .orderBy(orderByClause);
+        .orderBy(orderByClause)
+        .limit(limit)
+        .offset(offset);
 
-      return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: true});
+      const totalFrozen = await db
+        .select({ total: count() })
+        .from(frozenKanbans)
+        .innerJoin(kanbanRequests, eq(frozenKanbans.kanbanId, kanbanRequests.id))
+        .where(and(eq(frozenKanbans.process, processFilter), baseWhereClause));
+
+      const totalPages = Math.ceil((totalFrozen[0]?.total ?? 0) / limit);
+
+      return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: true, totalPages});
     } else {
       // Not frozen, fetch kanbans filtered by process normally
       const kanbans = await db
@@ -108,9 +130,19 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(and(baseWhereClause, eq(stationParts.process, processFilter)))
-        .orderBy(orderByClause);
+        .orderBy(orderByClause)
+        .limit(limit)
+        .offset(offset);
 
-      return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false});
+      const totalUnfrozen = await db
+        .select({ total: count() })
+        .from(kanbanRequests)
+        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+        .where(and(baseWhereClause, eq(stationParts.process, processFilter)));
+
+      const totalPages = Math.ceil((totalUnfrozen[0]?.total ?? 0) / limit);
+
+      return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false, totalPages});
     }
   } catch (err: any) {
     console.error("Error fetching kanbans:", err);
@@ -124,18 +156,24 @@ preparationSheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
+    const process = req.query?.process ? Number(req.query.process) : null;
     const isAdmin = user.role === "admin";
     const plantId = user.plantId;
-    const whereClause = isAdmin && plantId === null
-      ? eq(kanbanRequests.acknowledgedByLogistics, false)
-      : and(
-        eq(kanbanRequests.acknowledgedByLogistics, false),
-        eq(kanbanRequests.plantId, plantId!)
-      );
+    const baseWhereClause = eq(kanbanRequests.acknowledgedByLogistics, false);
+    const processWhereClause = process ? eq(stationParts.process, process) : sql`1=1`;
+    const adminWhereClause = isAdmin && plantId === null
+          ? sql`1=1`
+          : eq(kanbanRequests.plantId, plantId!);
+    const whereClause = and(
+      baseWhereClause,
+      processWhereClause,
+      adminWhereClause
+    );
 
     const result = await db
       .select({ total: count() })
       .from(kanbanRequests)
+      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
       .where(whereClause);
 
     // result is an array with one object: [{ total: number }]

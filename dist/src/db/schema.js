@@ -11,6 +11,7 @@ exports.products = (0, pg_core_1.pgTable)("products", {
 exports.plants = (0, pg_core_1.pgTable)("plants", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
     name: (0, pg_core_1.varchar)("name", { length: 100 }).notNull().unique(),
+    plantId: (0, pg_core_1.integer)("plant_id").unique(),
 });
 exports.stations = (0, pg_core_1.pgTable)("stations", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
@@ -64,7 +65,7 @@ exports.kanbanRequests = (0, pg_core_1.pgTable)("kanban_requests", {
     plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id, { onDelete: "cascade" }).notNull().default(1),
     stationId: (0, pg_core_1.integer)("station_id").references(() => exports.stations.id, { onDelete: "cascade" }).notNull(),
     partId: (0, pg_core_1.integer)("part_id").references(() => exports.parts.id, { onDelete: "cascade" }).notNull(),
-    productId: (0, pg_core_1.integer)("product_id").references(() => exports.products.id, { onDelete: "cascade" }).notNull(),
+    productId: (0, pg_core_1.integer)("product_id").references(() => exports.products.id, { onDelete: "cascade" }),
     requestedAt: (0, pg_core_1.timestamp)("requested_at", { withTimezone: true }).defaultNow().notNull(),
     acknowledgedByLogistics: (0, pg_core_1.boolean)("acknowledged_by_logistics").default(false).notNull(),
     acknowledgedAt: (0, pg_core_1.timestamp)("acknowledged_at", { withTimezone: true }),

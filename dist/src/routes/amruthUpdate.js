@@ -36,21 +36,42 @@ exports.amruthUpdateRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 
             .select({
             id: schema_1.kanbanRequests.id,
             process: schema_1.stationParts.process,
+            plantId: schema_1.plants.plantId,
             partId: schema_1.parts.partId,
             partName: schema_1.parts.name,
             partNumber: schema_1.parts.partNumber,
             boxQty: schema_1.stationParts.binQuantity,
             supplyLocation: schema_1.stationParts.supplyLocation,
-            sequenceNo: schema_1.kanbanRequests.id
+            sequenceNo: schema_1.kanbanRequests.id,
+            acknowledgedAt: schema_1.kanbanRequests.acknowledgedAt,
         })
             .from(schema_1.kanbanRequests)
             .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
             .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
             .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
             .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
+            .leftJoin(schema_1.plants, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, schema_1.plants.id))
             .where(whereClause)
             .orderBy(orderByClause);
-        return res.status(200).json(kanbans);
+        const ISTDateFormatedResult = kanbans.map(kanban => {
+            const acknowledgedAt = kanban.acknowledgedAt;
+            if (acknowledgedAt) {
+                const date = new Date(acknowledgedAt);
+                const formattedDate = date.toLocaleString('en-GB', {
+                    timeZone: 'Asia/Kolkata',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                }).replace(',', '');
+                return Object.assign(Object.assign({}, kanban), { acknowledgedAt: formattedDate });
+            }
+            return kanban;
+        });
+        return res.status(200).json(ISTDateFormatedResult);
     }
     catch (err) {
         console.error("Error fetching kanbans:", err);

@@ -18,6 +18,7 @@ const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
 const drizzle_orm_1 = require("drizzle-orm");
 const kanbanHelpers_1 = require("../lib/kanbanHelpers");
+const lookupCache_1 = require("../lib/lookupCache");
 exports.preparationSheetRouter = express_1.default.Router();
 const selectKanbanFields = {
     id: schema_1.kanbanRequests.id,
@@ -28,6 +29,7 @@ const selectKanbanFields = {
     prepLocation: schema_1.stationParts.prepLocation,
 };
 exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e, _f;
     try {
         const user = req.session.user;
         if (!user) {
@@ -37,18 +39,22 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
         const plantId = user.plantId;
         // Process filter from query params, e.g., /kanbans?process=1
         const processFilter = req.query.process ? Number(req.query.process) : null;
+        // pagination details from query params, e.g., /kanbans?page=1&limit=20
+        const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
+        const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
+        const offset = (page - 1) * limit;
+        // Base where clause for acknowledgedByLogistics and plant scope
+        const baseWhereClause = isAdmin && plantId === null
+            ? (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false)
+            : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId));
         // query for all unique processes
         const processes = yield client_1.db
             .selectDistinct({ process: schema_1.stationParts.process })
             .from(schema_1.kanbanRequests)
             .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
+            .where(baseWhereClause)
             .orderBy((0, drizzle_orm_1.asc)(schema_1.stationParts.process));
         const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
-        console.log("Unique processes:", uniqueProcesses);
-        // Base where clause for acknowledgedByLogistics and plant scope
-        const baseWhereClause = isAdmin && plantId === null
-            ? (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false)
-            : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId));
         const orderByClause = (0, drizzle_orm_1.sql) `
       CASE
         WHEN ${schema_1.stationParts.prepLocation} LIKE 'TZ-%' THEN 1
@@ -68,8 +74,15 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
                 .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
                 .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
                 .where(baseWhereClause)
-                .orderBy(orderByClause);
-            return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: false });
+                .orderBy(orderByClause)
+                .limit(limit)
+                .offset(offset);
+            const total = yield client_1.db
+                .select({ total: (0, drizzle_orm_1.count)() })
+                .from(schema_1.kanbanRequests)
+                .where(baseWhereClause);
+            const totalPages = Math.ceil(((_b = (_a = total[0]) === null || _a === void 0 ? void 0 : _a.total) !== null && _b !== void 0 ? _b : 0) / limit);
+            return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: false, totalPages });
         }
         // Check if this process is frozen
         const freezeState = yield client_1.db
@@ -90,8 +103,16 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
                 .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
                 .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
                 .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.frozenKanbans.process, processFilter), baseWhereClause))
-                .orderBy(orderByClause);
-            return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: true });
+                .orderBy(orderByClause)
+                .limit(limit)
+                .offset(offset);
+            const totalFrozen = yield client_1.db
+                .select({ total: (0, drizzle_orm_1.count)() })
+                .from(schema_1.frozenKanbans)
+                .innerJoin(schema_1.kanbanRequests, (0, drizzle_orm_1.eq)(schema_1.frozenKanbans.kanbanId, schema_1.kanbanRequests.id))
+                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.frozenKanbans.process, processFilter), baseWhereClause));
+            const totalPages = Math.ceil(((_d = (_c = totalFrozen[0]) === null || _c === void 0 ? void 0 : _c.total) !== null && _d !== void 0 ? _d : 0) / limit);
+            return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: true, totalPages });
         }
         else {
             // Not frozen, fetch kanbans filtered by process normally
@@ -103,8 +124,16 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
                 .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
                 .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
                 .where((0, drizzle_orm_1.and)(baseWhereClause, (0, drizzle_orm_1.eq)(schema_1.stationParts.process, processFilter)))
-                .orderBy(orderByClause);
-            return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: false });
+                .orderBy(orderByClause)
+                .limit(limit)
+                .offset(offset);
+            const totalUnfrozen = yield client_1.db
+                .select({ total: (0, drizzle_orm_1.count)() })
+                .from(schema_1.kanbanRequests)
+                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
+                .where((0, drizzle_orm_1.and)(baseWhereClause, (0, drizzle_orm_1.eq)(schema_1.stationParts.process, processFilter)));
+            const totalPages = Math.ceil(((_f = (_e = totalUnfrozen[0]) === null || _e === void 0 ? void 0 : _e.total) !== null && _f !== void 0 ? _f : 0) / limit);
+            return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: false, totalPages });
         }
     }
     catch (err) {
@@ -113,23 +142,28 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
     }
 }));
 exports.preparationSheetRouter.get("/kanbans/count", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
+    var _a, _b, _c;
     try {
         const user = req.session.user;
         if (!user) {
             return res.status(401).json({ error: "Unauthorized" });
         }
+        const process = ((_a = req.query) === null || _a === void 0 ? void 0 : _a.process) ? Number(req.query.process) : null;
         const isAdmin = user.role === "admin";
         const plantId = user.plantId;
-        const whereClause = isAdmin && plantId === null
-            ? (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false)
-            : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId));
+        const baseWhereClause = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false);
+        const processWhereClause = process ? (0, drizzle_orm_1.eq)(schema_1.stationParts.process, process) : (0, drizzle_orm_1.sql) `1=1`;
+        const adminWhereClause = isAdmin && plantId === null
+            ? (0, drizzle_orm_1.sql) `1=1`
+            : (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId);
+        const whereClause = (0, drizzle_orm_1.and)(baseWhereClause, processWhereClause, adminWhereClause);
         const result = yield client_1.db
             .select({ total: (0, drizzle_orm_1.count)() })
             .from(schema_1.kanbanRequests)
+            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
             .where(whereClause);
         // result is an array with one object: [{ total: number }]
-        return res.status(200).json({ total: (_b = (_a = result[0]) === null || _a === void 0 ? void 0 : _a.total) !== null && _b !== void 0 ? _b : 0 });
+        return res.status(200).json({ total: (_c = (_b = result[0]) === null || _b === void 0 ? void 0 : _b.total) !== null && _c !== void 0 ? _c : 0 });
     }
     catch (err) {
         console.error("Error fetching kanban count:", err);
@@ -269,5 +303,47 @@ exports.preparationSheetRouter.post("/kanbans/unfreeze", (req, res) => __awaiter
     catch (err) {
         console.error("Error unfreezing process:", err);
         return res.status(500).json({ error: err.message || "Internal server error" });
+    }
+}));
+exports.preparationSheetRouter.post("/kanbans/create", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const user = req.session.user;
+    if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
+    const isAdmin = user.role === "admin";
+    if (!isAdmin) {
+        return res.status(403).json({ error: "Forbidden: Only admins can create kanbans" });
+    }
+    const data = req.body;
+    try {
+        if (data.length === 0) {
+            return res.status(400).json({ error: "At least one kanban entry is required" });
+        }
+        const kanbanEntry = data.map(entry => {
+            const stationId = lookupCache_1.lookupCache.getStationId(entry.station);
+            return entry.parts.map(part => {
+                const partId = lookupCache_1.lookupCache.getPartId(part);
+                return {
+                    stationId,
+                    partId,
+                };
+            });
+        }).flat();
+        // Create new kanban request
+        const newKanban = yield client_1.db.insert(schema_1.kanbanRequests).values(kanbanEntry.map((entry) => ({
+            // plantId: entry.plantId,
+            stationId: entry.stationId,
+            partId: entry.partId,
+            // productId: entry.productId,
+            // acknowledgedByLogistics: entry.acknowledgedByLogistics || null,
+            // acknowledgedAt: entry.acknowledgedAt || null,
+            // fulfilled: entry.fulfilled || null,
+            // fulfilledAt: entry.fulfilledAt || null,
+        }))).returning();
+        return res.status(201).json({ message: "Kanban created successfully", kanban: newKanban[0] });
+    }
+    catch (error) {
+        console.error("Failed to create kanban:", error);
+        return res.status(500).json({ error: "Internal Server Error" });
     }
 }));

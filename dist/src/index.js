@@ -94,3 +94,6 @@ function start() {
     });
 }
 start();
+// process.on('unhandledRejection', (err) => {
+//   console.error('Unhandled rejection:', err);
+// });

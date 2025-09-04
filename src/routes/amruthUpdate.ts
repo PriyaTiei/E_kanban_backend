@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db/client";
-import { kanbanRequests, stationParts, parts, stations, products } from "../db/schema";
+import { kanbanRequests, stationParts, parts, stations, products, plants } from "../db/schema";
 import express from "express";
 
 export const amruthUpdateRouter = express.Router();
@@ -28,22 +28,44 @@ amruthUpdateRouter.get("/kanbans", async (req, res): Promise<any> => {
       .select({
         id: kanbanRequests.id,
         process: stationParts.process,
+        plantId: plants.plantId,
         partId: parts.partId,
         partName: parts.name,
         partNumber: parts.partNumber,
         boxQty: stationParts.binQuantity,
         supplyLocation: stationParts.supplyLocation,
-        sequenceNo: kanbanRequests.id
+        sequenceNo: kanbanRequests.id,
+        acknowledgedAt: kanbanRequests.acknowledgedAt,
       })
       .from(kanbanRequests)
       .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
       .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
       .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
       .leftJoin(products, eq(kanbanRequests.productId, products.id))
+      .leftJoin(plants, eq(kanbanRequests.plantId, plants.id))
       .where(whereClause)
       .orderBy(orderByClause);
 
-    return res.status(200).json(kanbans);
+      const ISTDateFormatedResult = kanbans.map(kanban => {
+        const acknowledgedAt = kanban.acknowledgedAt;
+        if (acknowledgedAt) {
+          const date = new Date(acknowledgedAt);
+          const formattedDate = date.toLocaleString('en-GB', { 
+            timeZone: 'Asia/Kolkata', 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit', 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit',
+            hour12: false
+          }).replace(',', '');
+          return { ...kanban, acknowledgedAt: formattedDate };
+        }
+        return kanban;
+      });
+
+    return res.status(200).json(ISTDateFormatedResult);
   } catch (err: any) {
     console.error("Error fetching kanbans:", err);
     return res.status(500).json({ error: err.message || "Internal server error" });
