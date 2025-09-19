@@ -9,16 +9,29 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.insertNewVariant = insertNewVariant;
 exports.handleProductShift = handleProductShift;
 const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
 const drizzle_orm_1 = require("drizzle-orm");
 const lookupCache_1 = require("./lookupCache");
-function handleProductShift(variant, refeedStationId) {
+function insertNewVariant(variant) {
     return __awaiter(this, void 0, void 0, function* () {
-        const variantId = lookupCache_1.lookupCache.getProductId(String(variant));
-        const gdPlantName = "GD";
-        const plantId = lookupCache_1.lookupCache.getPlantId(gdPlantName);
+        return client_1.db.insert(schema_1.products)
+            .values({
+            variant
+        }).returning({ id: schema_1.products.id });
+    });
+}
+function handleProductShift(variant, plantId, refeedStationId) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let variantId = lookupCache_1.lookupCache.getProductId(String(variant));
+        if (variantId === null) {
+            const newVariant = yield insertNewVariant(variant);
+            variantId = newVariant[0].id;
+        }
+        // const gdPlantName = "GD";
+        // const plantId = lookupCache.getPlantId(gdPlantName);
         const stationIds = lookupCache_1.lookupCache.getStationSequence();
         // If refeedStationId is provided, use it; otherwise, use the first station
         const startStationId = refeedStationId !== null && refeedStationId !== void 0 ? refeedStationId : stationIds[0];
@@ -87,11 +100,11 @@ function handleProductShift(variant, refeedStationId) {
                         })
                             .where((0, drizzle_orm_1.eq)(schema_1.stationParts.id, part.id));
                         // TODO: Remove this condition after bin matching.
-                        const stationName = lookupCache_1.lookupCache.getStationName(log.stationId);
-                        if (!stationName.startsWith("BS-")) {
-                            console.log("stationName:", stationName);
-                            continue;
-                        }
+                        // const stationName = lookupCache.getStationName(log.stationId);
+                        // if(!stationName.startsWith("BS-")){
+                        //   console.log("stationName:", stationName);
+                        //   continue;
+                        // }
                         yield tx.insert(schema_1.kanbanRequests).values({
                             plantId: plantId,
                             stationId: log.stationId,

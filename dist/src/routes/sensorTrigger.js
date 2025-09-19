@@ -1,124 +1,118 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.sensorTriggerRouter = void 0;
-const express_1 = __importDefault(require("express"));
-const client_1 = require("../db/client");
-const schema_1 = require("../db/schema");
-const drizzle_orm_1 = require("drizzle-orm");
-const lookupCache_1 = require("../lib/lookupCache");
-exports.sensorTriggerRouter = express_1.default.Router();
-exports.sensorTriggerRouter.post("/gd", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { variant } = req.body;
-    try {
-        const variantId = lookupCache_1.lookupCache.getProductId(String(variant));
-        const gdPlantName = 'GD';
-        const plantId = lookupCache_1.lookupCache.getPlantId(gdPlantName);
-        // Map station ID order for easy lookup
-        const stationIds = lookupCache_1.lookupCache.getStationSequence();
-        // Get current product entries (who is at what station)
-        const productLogs = yield client_1.db
-            .select()
-            .from(schema_1.productEntryLogs)
-            .orderBy((0, drizzle_orm_1.desc)(schema_1.productEntryLogs.stationId)); // important: descending to avoid conflict while shifting
-        yield client_1.db.transaction((tx) => __awaiter(void 0, void 0, void 0, function* () {
-            // 1. Move existing products forward
-            for (const log of productLogs) {
-                const currentIndex = stationIds.indexOf(log.stationId);
-                const nextStationId = stationIds[currentIndex + 1];
-                if (nextStationId) {
-                    // Move product to next station
-                    yield tx
-                        .update(schema_1.productEntryLogs)
-                        .set({
-                        stationId: nextStationId,
-                        timestamp: new Date(),
-                    })
-                        .where((0, drizzle_orm_1.eq)(schema_1.productEntryLogs.id, log.id));
-                }
-                else {
-                    // Product has moved beyond last station — remove or ignore
-                    yield tx.delete(schema_1.productEntryLogs).where((0, drizzle_orm_1.eq)(schema_1.productEntryLogs.id, log.id));
-                }
-            }
-            // 2. Insert the new product into the first station
-            const firstStationId = stationIds[0];
-            yield tx.insert(schema_1.productEntryLogs).values({
-                plantId: plantId,
-                stationId: firstStationId,
-                productId: variantId,
-                timestamp: new Date(),
-            });
-            // 3. Get updated logs after shifting
-            const updatedLogs = yield tx
-                .select()
-                .from(schema_1.productEntryLogs);
-            // 4. Process inventory deduction for each station-product pair
-            for (const log of updatedLogs) {
-                const parts = yield tx
-                    .select({
-                    id: schema_1.stationParts.id,
-                    binQuantity: schema_1.stationParts.binQuantity,
-                    currentQuantity: schema_1.stationParts.currentQuantity,
-                    consumptionPerProduct: schema_1.stationParts.consumptionPerProduct,
-                    partId: schema_1.stationParts.partId,
-                })
-                    .from(schema_1.stationParts)
-                    .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.stationParts.stationId, log.stationId), (0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.stationParts.allowed_for_all_products, true), (0, drizzle_orm_1.sql) `EXISTS (
-                  SELECT 1 FROM product_part_exceptions
-                  WHERE product_part_exceptions.product_id = ${log.productId}
-                  AND product_part_exceptions.part_id = station_parts.part_id
-                )`)));
-                for (const part of parts) {
-                    let updatedQuantity;
-                    let remainder;
-                    if (part.currentQuantity - part.consumptionPerProduct <= 0) {
-                        remainder = Math.abs(part.currentQuantity - part.consumptionPerProduct);
-                        updatedQuantity = part.binQuantity - remainder;
-                        yield tx
-                            .update(schema_1.stationParts)
-                            .set({
-                            currentQuantity: updatedQuantity,
-                            updatedAt: new Date(),
-                        })
-                            .where((0, drizzle_orm_1.eq)(schema_1.stationParts.id, part.id));
-                        yield tx.insert(schema_1.kanbanRequests).values({
-                            plantId: plantId,
-                            stationId: log.stationId,
-                            partId: part.partId,
-                            productId: log.productId,
-                        });
-                    }
-                    else {
-                        updatedQuantity = part.currentQuantity - part.consumptionPerProduct;
-                        yield tx
-                            .update(schema_1.stationParts)
-                            .set({
-                            currentQuantity: updatedQuantity,
-                            updatedAt: new Date(),
-                        })
-                            .where((0, drizzle_orm_1.eq)(schema_1.stationParts.id, part.id));
-                    }
-                }
-            }
-        }));
-        return res.status(200).json({
-            message: "Line shifted and part inventories updated successfully.",
-        });
-    }
-    catch (err) {
-        console.error("Sensor trigger error:", err);
-        return res.status(500).json({ error: err.message || "Internal server error" });
-    }
-}));
+// import express, { Response } from "express";
+// import { db } from "../db/client";
+// import { kanbanRequests, productEntryLogs, stationParts } from "../db/schema";
+// import { eq, and, or, isNull, ne, desc, sql } from "drizzle-orm";
+// import { lookupCache } from "../lib/lookupCache";
+// export const sensorTriggerRouter = express.Router();
+// interface SensorTriggerRequest {
+//   variant: string;
+// }
+// sensorTriggerRouter.post("/gd", async (req, res): Promise<any> => {
+//   const { variant } = req.body as SensorTriggerRequest;
+//   try {
+//     const variantId = lookupCache.getProductId(String(variant));
+//     const gdPlantName = 'GD';
+//     const plantId = lookupCache.getPlantId(gdPlantName);
+//     // Map station ID order for easy lookup
+//     const stationIds = lookupCache.getStationSequence();
+//     // Get current product entries (who is at what station)
+//     const productLogs = await db
+//       .select()
+//       .from(productEntryLogs)
+//       .orderBy(desc(productEntryLogs.stationId)); // important: descending to avoid conflict while shifting
+//     await db.transaction(async (tx) => {
+//       // 1. Move existing products forward
+//       for (const log of productLogs) {
+//         const currentIndex = stationIds.indexOf(log.stationId);
+//         const nextStationId = stationIds[currentIndex + 1];
+//         if (nextStationId) {
+//           // Move product to next station
+//           await tx
+//             .update(productEntryLogs)
+//             .set({
+//               stationId: nextStationId,
+//               timestamp: new Date(),
+//             })
+//             .where(eq(productEntryLogs.id, log.id));
+//         } else {
+//           // Product has moved beyond last station — remove or ignore
+//           await tx.delete(productEntryLogs).where(eq(productEntryLogs.id, log.id));
+//         }
+//       }
+//       // 2. Insert the new product into the first station
+//       const firstStationId = stationIds[0];
+//       await tx.insert(productEntryLogs).values({
+//         plantId: plantId,
+//         stationId: firstStationId,
+//         productId: variantId,
+//         timestamp: new Date(),
+//       });
+//       // 3. Get updated logs after shifting
+//       const updatedLogs = await tx
+//         .select()
+//         .from(productEntryLogs);
+//       // 4. Process inventory deduction for each station-product pair
+//       for (const log of updatedLogs) {
+//         const parts = await tx
+//           .select({
+//             id: stationParts.id,
+//             binQuantity: stationParts.binQuantity,
+//             currentQuantity: stationParts.currentQuantity,
+//             consumptionPerProduct: stationParts.consumptionPerProduct,
+//             partId: stationParts.partId,
+//           })
+//           .from(stationParts)
+//           .where(
+//             and(
+//               eq(stationParts.stationId, log.stationId),
+//               or(
+//                 eq(stationParts.allowed_for_all_products, true),
+//                 sql`EXISTS (
+//                   SELECT 1 FROM product_part_exceptions
+//                   WHERE product_part_exceptions.product_id = ${log.productId}
+//                   AND product_part_exceptions.part_id = station_parts.part_id
+//                 )`
+//               )
+//             )
+//           );
+//         for (const part of parts) {
+//           let updatedQuantity: number;
+//           let remainder: number;
+//           if (part.currentQuantity - part.consumptionPerProduct <= 0) {
+//             remainder = Math.abs(part.currentQuantity - part.consumptionPerProduct);
+//             updatedQuantity = part.binQuantity - remainder;
+//             await tx
+//               .update(stationParts)
+//               .set({
+//                 currentQuantity: updatedQuantity,
+//                 updatedAt: new Date(),
+//               })
+//               .where(eq(stationParts.id, part.id));
+//             await tx.insert(kanbanRequests).values({
+//               plantId: plantId,
+//               stationId: log.stationId,
+//               partId: part.partId,
+//               productId: log.productId,
+//             });
+//           } else {
+//             updatedQuantity = part.currentQuantity - part.consumptionPerProduct;
+//             await tx
+//               .update(stationParts)
+//               .set({
+//                 currentQuantity: updatedQuantity,
+//                 updatedAt: new Date(),
+//               })
+//               .where(eq(stationParts.id, part.id));
+//           }
+//         }
+//       }
+//     });
+//     return res.status(200).json({
+//       message: "Line shifted and part inventories updated successfully.",
+//     });
+//   } catch (err: any) {
+//     console.error("Sensor trigger error:", err);
+//     return res.status(500).json({ error: err.message || "Internal server error" });
+//   }
+// });

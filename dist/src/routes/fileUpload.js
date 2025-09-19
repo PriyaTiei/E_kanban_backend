@@ -40,7 +40,10 @@ exports.uploadChunks.post('/excel-update', upload.single('chunk'), (req, res) =>
             const fullPath = `${fileDir}/${fileName}`;
             yield (0, combineChunks_1.combineChunks)(fileDir, fileName, totalChunks);
             const updateResult = yield (0, updateDbFromExcel_1.updateDbFromExcel)(fullPath);
-            res.status(200).json(Object.assign(Object.assign({}, updateResult), { message: 'data updated successfully' }));
+            if (updateResult.success)
+                res.status(200).json(updateResult);
+            else
+                res.status(400).json(updateResult);
             return;
         }
         res.status(200).json({ message: `Chunk ${chunkIndex} processed` });

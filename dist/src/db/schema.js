@@ -80,6 +80,7 @@ exports.frozenKanbans = (0, pg_core_1.pgTable)("frozen_kanbans", {
 });
 exports.processFreezeState = (0, pg_core_1.pgTable)("process_freeze_state", {
     process: (0, pg_core_1.integer)("process").primaryKey(),
+    plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id, { onDelete: "cascade" }).default(1),
     isFrozen: (0, pg_core_1.boolean)("is_frozen").notNull().default(false),
     frozenAt: (0, pg_core_1.timestamp)("frozen_at", { withTimezone: true }),
 });

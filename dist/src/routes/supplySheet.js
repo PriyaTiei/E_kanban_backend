@@ -27,15 +27,12 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
             return res.status(401).json({ error: "Unauthorized" });
         }
         const processFilter = req.query.process ? Number(req.query.process) : null;
-        const isAdmin = user.role === "admin";
         const plantId = user.plantId;
         // pagination details from query params, e.g., /kanbans?page=1&limit=20
         const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
         const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
         const offset = (page - 1) * limit;
-        const whereClause = isAdmin && plantId === null
-            ? (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.fulfilled, false))
-            : (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.fulfilled, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId));
+        const whereClause = (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.fulfilled, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId));
         // query for all unique processes
         const processes = yield client_1.db
             .selectDistinct({ process: schema_1.stationParts.process })
@@ -53,7 +50,7 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
       END,
       regexp_replace(${schema_1.stationParts.supplyLocation}, '[^0-9]', '', 'g')::int,
       ${schema_1.stationParts.supplyLocation},
-      ${schema_1.kanbanRequests.acknowledgedAt}
+      ${schema_1.kanbanRequests.partId}
     `;
         if (!processFilter) {
             const kanbans = yield client_1.db
@@ -124,14 +121,11 @@ exports.supplySheetRouter.get("/kanbans/count", (req, res) => __awaiter(void 0, 
             return res.status(401).json({ error: "Unauthorized" });
         }
         const process = ((_a = req.query) === null || _a === void 0 ? void 0 : _a.process) ? Number(req.query.process) : null;
-        const isAdmin = user.role === "admin";
         const plantId = user.plantId;
         const baseWhereClause = (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.fulfilled, false));
         const processWhereClause = process ? (0, drizzle_orm_1.eq)(schema_1.stationParts.process, process) : (0, drizzle_orm_1.sql) `1=1`;
-        const adminWhereClause = isAdmin && plantId === null
-            ? (0, drizzle_orm_1.sql) `1=1`
-            : (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId);
-        const whereClause = (0, drizzle_orm_1.and)(baseWhereClause, processWhereClause, adminWhereClause);
+        const plantWhereClause = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId);
+        const whereClause = (0, drizzle_orm_1.and)(baseWhereClause, processWhereClause, plantWhereClause);
         const result = yield client_1.db
             .select({ total: (0, drizzle_orm_1.count)() })
             .from(schema_1.kanbanRequests)

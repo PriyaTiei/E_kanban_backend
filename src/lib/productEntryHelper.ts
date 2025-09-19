@@ -1,12 +1,24 @@
 import { db } from "../db/client";
-import { productEntryLogs, kanbanRequests, stationParts } from "../db/schema";
+import { productEntryLogs, kanbanRequests, stationParts, products } from "../db/schema";
 import { eq, and, or, desc, gte, sql } from "drizzle-orm";
 import { lookupCache } from "./lookupCache";
 
-export async function handleProductShift(variant: string, refeedStationId?: number) {
-  const variantId = lookupCache.getProductId(String(variant));
-  const gdPlantName = "GD";
-  const plantId = lookupCache.getPlantId(gdPlantName);
+export async function insertNewVariant(variant: string) {
+  return db.insert(products)
+    .values({
+      variant
+    }).returning({ id: products.id });
+}
+
+export async function handleProductShift(variant: string, plantId:number, refeedStationId?: number) {
+  let variantId = lookupCache.getProductId(String(variant));
+
+  if (variantId === null) {
+    const newVariant = await insertNewVariant(variant)
+    variantId = newVariant[0].id
+  }
+  // const gdPlantName = "GD";
+  // const plantId = lookupCache.getPlantId(gdPlantName);
   const stationIds = lookupCache.getStationSequence();
 
   // If refeedStationId is provided, use it; otherwise, use the first station
@@ -95,11 +107,11 @@ export async function handleProductShift(variant: string, refeedStationId?: numb
             .where(eq(stationParts.id, part.id));
           
           // TODO: Remove this condition after bin matching.
-          const stationName = lookupCache.getStationName(log.stationId);
-          if(!stationName.startsWith("BS-")){
-            console.log("stationName:", stationName);
-            continue;
-          }
+          // const stationName = lookupCache.getStationName(log.stationId);
+          // if(!stationName.startsWith("BS-")){
+          //   console.log("stationName:", stationName);
+          //   continue;
+          // }
       
           await tx.insert(kanbanRequests).values({
             plantId: plantId,

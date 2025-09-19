@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.lookupCache = void 0;
+exports.lookupCache = exports.LookupCache = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
@@ -65,9 +65,13 @@ class LookupCache {
     }
     getProductId(variant) {
         const id = this.products.get(String(variant));
-        if (!id)
-            throw new Error(`Unknown product variant: ${variant}`);
+        if (!id) {
+            console.log(`Unknown product variant: ${variant}`);
+            return null;
+        }
+        ;
         return id;
     }
 }
+exports.LookupCache = LookupCache;
 exports.lookupCache = new LookupCache();

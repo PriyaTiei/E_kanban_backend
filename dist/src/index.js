@@ -15,7 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
-const sensorTrigger_1 = require("./routes/sensorTrigger");
+// import { sensorTriggerRouter } from "./routes/sensorTrigger";
 const lookupCache_1 = require("./lib/lookupCache");
 const preparationSheet_1 = require("./routes/preparationSheet");
 const supplySheet_1 = require("./routes/supplySheet");
@@ -66,15 +66,13 @@ function start() {
         yield lookupCache_1.lookupCache.initialize();
         // Public routes
         app.use('/supply', amruthUpdate_1.amruthUpdateRouter);
-        app.use("/sensor-trigger", sensorTrigger_1.sensorTriggerRouter);
+        // app.use("/sensor-trigger", sensorTriggerRouter);
         app.use("/auth", userAuth_1.userAuthRouter); // Allow login/logout/session check without auth
         // Auth middleware for all other routes
         app.use((req, res, next) => {
             if (req.session.user) {
                 return next();
             }
-            console.log("session user: ", req.session.user);
-            console.log("Request Route:", req.originalUrl);
             res.status(401).json({ error: "Not authenticated" });
         });
         // Protected routes

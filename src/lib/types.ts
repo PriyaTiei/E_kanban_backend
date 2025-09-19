@@ -5,8 +5,8 @@ declare module "express-session" {
       id: number;
       username: string;
       role: string;
-      plantId: number | null;
-      plantName: string | null;
+      plantId: number;
+      plantName: string;
     };
   }
 }
@@ -44,4 +44,10 @@ export interface KanbanEntry {
 export interface KanbanCreateRequest {
   station: string
   parts: string[]
+}
+
+export interface suppliedKanban {
+  PART_NUMBER: string,
+  WIP_LOCATION: string,
+  SCAN_SYS_DATE: string
 }

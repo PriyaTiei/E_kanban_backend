@@ -2,7 +2,7 @@ import { isNotNull } from "drizzle-orm";
 import { db } from "../db/client";
 import { parts, plants, products, stations } from "../db/schema";
 
-class LookupCache {
+export class LookupCache {
   private plants = new Map<string, number>();
   private stations = new Map<string, number>();
   private parts = new Map<string, number>();
@@ -55,7 +55,10 @@ class LookupCache {
 
   getProductId(variant: string) {
     const id = this.products.get(String(variant));
-    if (!id) throw new Error(`Unknown product variant: ${variant}`);
+    if (!id) { 
+      console.log(`Unknown product variant: ${variant}`)
+      return null;
+    };
     return id;
   }
 }

@@ -54,17 +54,11 @@ exports.userAuthRouter.post("/login", (req, res) => __awaiter(void 0, void 0, vo
             id: user.id,
             username: user.username,
             role: user.role,
-            plantId: user.plantId,
-            plantName: user.plantName,
+            plantId: user.role === 'admin' && !user.plantId ? 1 : user.plantId,
+            plantName: !user.plantName ? user.plantId === 1 ? "GD" : "TNGA" : user.plantName,
         };
         console.log("session set for user:", req.session.user);
-        res.json({
-            id: user.id,
-            username: user.username,
-            role: user.role,
-            plantId: user.plantId,
-            plantName: user.plantName,
-        });
+        res.json(req.session.user);
     }
     catch (error) {
         console.error("Login error:", error);
@@ -88,3 +82,27 @@ exports.userAuthRouter.get("/me", (req, res) => {
     }
     res.status(401).json({ error: "Not authenticated" });
 });
+exports.userAuthRouter.post("/change-plant", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const { plantId } = req.body;
+    if (!req.session.user) {
+        res.status(401).json({ error: "Not authenticated" });
+        return;
+    }
+    if (req.session.user.role !== 'admin') {
+        res.status(403).json({ error: "Only admins can change plant" });
+        return;
+    }
+    if (!plantId) {
+        res.status(400).json({ error: "plantId is required" });
+        return;
+    }
+    const plantName = yield client_1.db.select({ plantName: schema_1.plants.name }).from(schema_1.plants).where((0, drizzle_orm_1.eq)(schema_1.plants.id, plantId));
+    yield client_1.db.update(schema_1.users)
+        .set({ plantId })
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.users.id, req.session.user.id), (0, drizzle_orm_1.eq)(schema_1.users.role, 'admin')));
+    req.session.user.plantId = plantId;
+    req.session.user.plantName = (_a = plantName[0]) === null || _a === void 0 ? void 0 : _a.plantName;
+    console.log("Plant changed for user:", req.session.user);
+    res.json(req.session.user);
+}));

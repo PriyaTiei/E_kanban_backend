@@ -24,6 +24,7 @@ const POLL_INTERVAL_MS = 5000;
 const SETTING_KEY = "last_processed_timestamp";
 function pollEntries() {
     return __awaiter(this, void 0, void 0, function* () {
+        const plantId = 1;
         try {
             if (API_URL && BEARER_TOKEN) {
                 console.log("🔄 Polling for new product entries...");
@@ -48,7 +49,7 @@ function pollEntries() {
                 console.log(`📦 Found ${sorted.length} new entries since last processed at ${lastProcessedDate.toLocaleString()}: `, sorted);
                 for (const entry of sorted) {
                     console.log(`⚙️ Processing ${entry.id_number} at ${entry.created_at}`);
-                    yield (0, productEntryHelper_1.handleProductShift)(entry.id_number);
+                    yield (0, productEntryHelper_1.handleProductShift)(entry.id_number, plantId);
                     yield (0, settingsService_1.setSetting)(SETTING_KEY, entry.created_at);
                 }
             }

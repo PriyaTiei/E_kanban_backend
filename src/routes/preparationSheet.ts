@@ -24,7 +24,6 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const isAdmin = user.role === "admin";
     const plantId = user.plantId;
 
     // Process filter from query params, e.g., /kanbans?process=1
@@ -36,11 +35,9 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
 
     
     // Base where clause for acknowledgedByLogistics and plant scope
-    const baseWhereClause = isAdmin && plantId === null
-    ? eq(kanbanRequests.acknowledgedByLogistics, false)
-    : and(
+    const baseWhereClause = and(
       eq(kanbanRequests.acknowledgedByLogistics, false),
-      eq(kanbanRequests.plantId, plantId!)
+      eq(kanbanRequests.plantId, plantId)
     );
     // query for all unique processes
     const processes = await db
@@ -58,7 +55,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         WHEN ${stationParts.prepLocation} LIKE 'LOG-%' THEN 2
         ELSE 3
       END,
-      regexp_replace(${stationParts.prepLocation}, '[^0-9]', '', 'g')::int,
+      NULLIF(regexp_replace(${stationParts.prepLocation}, '[^0-9]', '', 'g'), '')::int,
       ${kanbanRequests.partId}
     `;
 
@@ -90,7 +87,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     const freezeState = await db
       .select()
       .from(processFreezeState)
-      .where(eq(processFreezeState.process, processFilter))
+      .where(and((eq(processFreezeState.process, processFilter)),eq(processFreezeState.plantId, plantId)))
       .limit(1);
 
     const isFrozen = freezeState.length > 0 && freezeState[0].isFrozen;
@@ -157,17 +154,14 @@ preparationSheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const process = req.query?.process ? Number(req.query.process) : null;
-    const isAdmin = user.role === "admin";
     const plantId = user.plantId;
     const baseWhereClause = eq(kanbanRequests.acknowledgedByLogistics, false);
     const processWhereClause = process ? eq(stationParts.process, process) : sql`1=1`;
-    const adminWhereClause = isAdmin && plantId === null
-          ? sql`1=1`
-          : eq(kanbanRequests.plantId, plantId!);
+    const plantWhereClause = eq(kanbanRequests.plantId, plantId!);
     const whereClause = and(
       baseWhereClause,
       processWhereClause,
-      adminWhereClause
+      plantWhereClause
     );
 
     const result = await db
@@ -246,14 +240,9 @@ preparationSheetRouter.post("/kanbans/freeze", async (req, res): Promise<any> =>
     }
 
     const plantId = user.plantId;
-    const whereClause = user.role === "admin" && plantId === null
-      ? and(
+    const whereClause = and(
           eq(kanbanRequests.acknowledgedByLogistics, false),
-          eq(stationParts.process, process)
-        )
-      : and(
-          eq(kanbanRequests.acknowledgedByLogistics, false),
-          eq(kanbanRequests.plantId, plantId!),
+          eq(kanbanRequests.plantId, plantId),
           eq(stationParts.process, process)
         );
 
@@ -261,7 +250,7 @@ preparationSheetRouter.post("/kanbans/freeze", async (req, res): Promise<any> =>
     const existingFreeze = await db
       .select()
       .from(processFreezeState)
-      .where(eq(processFreezeState.process, process))
+      .where(and(eq(processFreezeState.process, process),eq(processFreezeState.plantId, plantId)))
       .limit(1);
 
     if (existingFreeze.length > 0 && existingFreeze[0].isFrozen) {
@@ -286,8 +275,8 @@ preparationSheetRouter.post("/kanbans/freeze", async (req, res): Promise<any> =>
       const freezeTimestamp = new Date();
 
       const upsertProcessFreeze = sql`
-        INSERT INTO process_freeze_state (process, is_frozen, frozen_at)
-        VALUES (${process}, true, ${freezeTimestamp})
+        INSERT INTO process_freeze_state (process, plant_id is_frozen, frozen_at)
+        VALUES (${process}, ${plantId} true, ${freezeTimestamp})
         ON CONFLICT (process) DO UPDATE
           SET is_frozen = true,
               frozen_at = EXCLUDED.frozen_at
@@ -325,6 +314,7 @@ preparationSheetRouter.post("/kanbans/unfreeze", async (req, res): Promise<any> 
     }
 
     const { process } = req.body;
+    const plantId = user.plantId;
     if (!process) {
       return res.status(400).json({ error: "Process is required" });
     }
@@ -334,10 +324,17 @@ preparationSheetRouter.post("/kanbans/unfreeze", async (req, res): Promise<any> 
       await tx
         .update(processFreezeState)
         .set({ isFrozen: false, frozenAt: null})
-        .where(eq(processFreezeState.process, process));
+        .where(and(eq(processFreezeState.process, process),eq(processFreezeState.plantId, plantId)));
 
       // Delete frozenKanbans for process
-      await tx.delete(frozenKanbans).where(eq(frozenKanbans.process, process));
+      const frozenKanbansToDelete = await db.select({ id: frozenKanbans.id })
+      .from(frozenKanbans)
+      .leftJoin(kanbanRequests, eq(frozenKanbans.kanbanId, kanbanRequests.id))
+      .where(and(eq(frozenKanbans.process, process),eq(kanbanRequests.plantId, plantId)));
+    
+      await tx
+        .delete(frozenKanbans)
+        .where(inArray(frozenKanbans.id, frozenKanbansToDelete.map(k => k.id)));
     });
 
     return res.status(200).json({ message: `Process ${process} unfrozen successfully` });
@@ -357,6 +354,7 @@ preparationSheetRouter.post("/kanbans/create", async (req, res): Promise<any> =>
     return res.status(403).json({ error: "Forbidden: Only admins can create kanbans" });
   }
 
+  const plantId = user.plantId;
   const data:KanbanCreateRequest[] = req.body;
   try {
     if (data.length === 0) {
@@ -376,7 +374,7 @@ preparationSheetRouter.post("/kanbans/create", async (req, res): Promise<any> =>
     // Create new kanban request
     const newKanban = await db.insert(kanbanRequests).values(
       kanbanEntry.map((entry) => ({
-        // plantId: entry.plantId,
+        plantId: plantId,
         stationId: entry.stationId!,
         partId: entry.partId!,
         // productId: entry.productId,

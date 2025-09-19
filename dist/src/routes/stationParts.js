@@ -25,11 +25,8 @@ exports.stationPartsRouter.get('/', (req, res) => __awaiter(void 0, void 0, void
         if (!user) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const isAdmin = user.role === "admin";
         const plantId = user.plantId;
-        const whereClause = isAdmin && plantId === null
-            ? (0, drizzle_orm_1.sql) `1=1`
-            : (0, drizzle_orm_1.eq)(schema_1.stationParts.plantId, plantId);
+        const whereClause = (0, drizzle_orm_1.eq)(schema_1.stationParts.plantId, plantId);
         const stationData = yield client_1.db
             .select({
             id: schema_1.stationParts.id,

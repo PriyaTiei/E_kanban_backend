@@ -89,6 +89,7 @@ export const frozenKanbans = pgTable("frozen_kanbans", {
 
 export const processFreezeState = pgTable("process_freeze_state", {
   process: integer("process").primaryKey(),
+  plantId: integer("plant_id").references(() => plants.id, { onDelete: "cascade" }).default(1),
   isFrozen: boolean("is_frozen").notNull().default(false),
   frozenAt: timestamp("frozen_at", { withTimezone: true }),
 });

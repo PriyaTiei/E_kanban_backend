@@ -1,0 +1,2 @@
+ALTER TABLE "process_freeze_state" ADD COLUMN "plant_id" integer DEFAULT 1;--> statement-breakpoint
+ALTER TABLE "process_freeze_state" ADD CONSTRAINT "process_freeze_state_plant_id_plants_id_fk" FOREIGN KEY ("plant_id") REFERENCES "public"."plants"("id") ON DELETE cascade ON UPDATE no action;

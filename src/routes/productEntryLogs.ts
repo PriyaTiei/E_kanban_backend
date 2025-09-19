@@ -12,11 +12,8 @@ productEntryLogsRouter.get('/', async (req, res): Promise<any> => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const isAdmin = user.role === "admin";
   const plantId = user.plantId;
-  const whereClause = isAdmin && plantId === null
-    ? sql`1=1`
-    : eq(productEntryLogs.plantId, plantId!);
+  const whereClause = eq(productEntryLogs.plantId, plantId);
 
     const logs = await db
       .select({
@@ -120,12 +117,13 @@ productEntryLogsRouter.put('/refeed/:stationId', async (req, res): Promise<any> 
 
     const { variant } = req.body;
     const stationId = Number(req.params.stationId);
+    const plantId = user.plantId;
 
     if (!variant || isNaN(stationId)) {
       return res.status(400).json({ error: "variant and valid stationId are required" });
     }
 
-    await handleProductShift(variant, stationId);
+    await handleProductShift(variant, plantId, stationId);
 
     res.json({ message: "Product re-fed successfully at the specified station." });
   } catch (error) {

@@ -13,19 +13,35 @@ exports.handleSupplyUpdate = handleSupplyUpdate;
 const drizzle_orm_1 = require("drizzle-orm");
 const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
-function handleSupplyUpdate(kanbanIds) {
+function handleSupplyUpdate(suppliedKanbans) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log("Received request to update kanban in supply list:", kanbanIds);
-        if (!Array.isArray(kanbanIds) || kanbanIds.length === 0) {
+        if (!Array.isArray(suppliedKanbans) || suppliedKanbans.length === 0) {
             throw new Error("kanbanIds array is required");
         }
         try {
+            const earliestSupplyKanban = new Date(suppliedKanbans[0].SCAN_SYS_DATE);
+            // sort the kanbanRequests table in ascending order w.r.t. part number.
+            const oldestFirstKanbansResult = yield Promise.all(suppliedKanbans.map((suppliedKanban) => __awaiter(this, void 0, void 0, function* () {
+                return yield client_1.db.select({ kanbanId: schema_1.kanbanRequests.id })
+                    .from(schema_1.kanbanRequests)
+                    .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
+                    .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parts.partNumber, suppliedKanban.PART_NUMBER), 
+                // gte(kanbanRequests.requestedAt, new Date(earliestSupplyKanban.getTime() - 24 * 60 * 60 * 1000)),
+                (0, drizzle_orm_1.lt)(schema_1.kanbanRequests.requestedAt, new Date(suppliedKanban.SCAN_SYS_DATE))))
+                    .orderBy((0, drizzle_orm_1.desc)(schema_1.kanbanRequests.requestedAt)).limit(1);
+            })));
+            const oldestFirstKanbanIds = oldestFirstKanbansResult.flat().map((idResult) => idResult.kanbanId);
+            console.log(`Kanbans to update: ${oldestFirstKanbanIds.length}, kanbans: ${oldestFirstKanbanIds}`);
+            if (oldestFirstKanbanIds.length === 0) {
+                console.log("No kanban found to update");
+                return;
+            }
             const fulfilled = true;
             const fulfilledAt = new Date();
             const result = yield client_1.db
                 .update(schema_1.kanbanRequests)
                 .set({ fulfilled, fulfilledAt })
-                .where((0, drizzle_orm_1.inArray)(schema_1.kanbanRequests.id, kanbanIds))
+                .where((0, drizzle_orm_1.inArray)(schema_1.kanbanRequests.id, oldestFirstKanbanIds))
                 .returning();
             if (result.length === 0) {
                 throw new Error("Kanban not found");

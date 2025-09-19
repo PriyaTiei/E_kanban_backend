@@ -11,7 +11,6 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const isAdmin = user.role === "admin";
     const plantId = user.plantId;
 
     // pagination details from query params, e.g., /kanbans?page=1&limit=20
@@ -19,9 +18,7 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
     const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
     const offset = (page - 1) * limit;
 
-    const whereClause = isAdmin && plantId === null
-      ? sql`1=1`
-      : eq(kanbanRequests.plantId, plantId!);
+    const whereClause = eq(kanbanRequests.plantId, plantId);
 
     const logs = await db
       .select({

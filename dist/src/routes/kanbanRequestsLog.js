@@ -25,15 +25,12 @@ exports.kanbanRequestsLogRouter.get("/", (req, res) => __awaiter(void 0, void 0,
         if (!user) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const isAdmin = user.role === "admin";
         const plantId = user.plantId;
         // pagination details from query params, e.g., /kanbans?page=1&limit=20
         const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
         const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
         const offset = (page - 1) * limit;
-        const whereClause = isAdmin && plantId === null
-            ? (0, drizzle_orm_1.sql) `1=1`
-            : (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId);
+        const whereClause = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId);
         const logs = yield client_1.db
             .select({
             id: schema_1.kanbanRequests.id,

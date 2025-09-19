@@ -11,11 +11,8 @@ stationsRouter.get('/', async (req, res): Promise<any> => {
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const isAdmin = user.role === "admin";
     const plantId = user.plantId;
-    const whereClause = isAdmin && plantId === null
-      ? sql`1=1`
-      : eq(stations.plantId, plantId!);
+    const whereClause = eq(stations.plantId, plantId);
 
     const stationDetails = await db.select().from(stations).where(whereClause).orderBy(stations.id);
     

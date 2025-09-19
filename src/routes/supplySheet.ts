@@ -14,7 +14,6 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const processFilter = req.query.process ? Number(req.query.process) : null;
-    const isAdmin = user.role === "admin";
     const plantId = user.plantId;
 
     // pagination details from query params, e.g., /kanbans?page=1&limit=20
@@ -22,12 +21,7 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
     const offset = (page - 1) * limit;
 
-    const whereClause = isAdmin && plantId === null
-      ? and(
-          eq(kanbanRequests.acknowledgedByLogistics, true),
-          eq(kanbanRequests.fulfilled, false)
-        )
-      : and(
+    const whereClause = and(
           eq(kanbanRequests.acknowledgedByLogistics, true),
           eq(kanbanRequests.fulfilled, false),
           eq(kanbanRequests.plantId, plantId!)
@@ -130,20 +124,17 @@ supplySheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const process = req.query?.process ? Number(req.query.process) : null;    
-    const isAdmin = user.role === "admin";
     const plantId = user.plantId;
     const baseWhereClause = and(
       eq(kanbanRequests.acknowledgedByLogistics, true),
       eq(kanbanRequests.fulfilled, false)
     );
     const processWhereClause = process ? eq(stationParts.process, process) : sql`1=1`;
-    const adminWhereClause = isAdmin && plantId === null
-          ? sql`1=1`
-          : eq(kanbanRequests.plantId, plantId!);
+    const plantWhereClause = eq(kanbanRequests.plantId, plantId);
     const whereClause = and(
       baseWhereClause,
       processWhereClause,
-      adminWhereClause
+      plantWhereClause
     );
     const result = await db
       .select({ total: count() })

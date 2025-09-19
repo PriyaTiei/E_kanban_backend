@@ -31,7 +31,10 @@ uploadChunks.post('/excel-update', upload.single('chunk'), async (req, res): Pro
       await combineChunks(fileDir, fileName, totalChunks);
 
       const updateResult = await updateDbFromExcel(fullPath);
-      res.status(200).json({ ...updateResult, message: 'data updated successfully' });
+      if(updateResult.success)
+        res.status(200).json(updateResult);
+      else
+        res.status(400).json(updateResult);
       return;
     }
 

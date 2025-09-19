@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import express from "express";
 import cors from 'cors';
-import { sensorTriggerRouter } from "./routes/sensorTrigger";
+// import { sensorTriggerRouter } from "./routes/sensorTrigger";
 import { lookupCache } from "./lib/lookupCache";
 import { preparationSheetRouter } from "./routes/preparationSheet";
 import { supplySheetRouter } from "./routes/supplySheet";
@@ -58,7 +58,7 @@ async function start() {
 
     // Public routes
     app.use('/supply', amruthUpdateRouter);
-    app.use("/sensor-trigger", sensorTriggerRouter);
+    // app.use("/sensor-trigger", sensorTriggerRouter);
     app.use("/auth", userAuthRouter); // Allow login/logout/session check without auth
 
     // Auth middleware for all other routes
@@ -67,8 +67,6 @@ async function start() {
       if (req.session.user) {
         return next();
       }
-      console.log("session user: ", req.session.user);
-      console.log("Request Route:", req.originalUrl);
       res.status(401).json({ error: "Not authenticated" });
     });
     

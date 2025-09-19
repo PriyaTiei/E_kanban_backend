@@ -25,11 +25,8 @@ exports.productEntryLogsRouter.get('/', (req, res) => __awaiter(void 0, void 0, 
         if (!user) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const isAdmin = user.role === "admin";
         const plantId = user.plantId;
-        const whereClause = isAdmin && plantId === null
-            ? (0, drizzle_orm_1.sql) `1=1`
-            : (0, drizzle_orm_1.eq)(schema_1.productEntryLogs.plantId, plantId);
+        const whereClause = (0, drizzle_orm_1.eq)(schema_1.productEntryLogs.plantId, plantId);
         const logs = yield client_1.db
             .select({
             id: schema_1.productEntryLogs.id,
@@ -121,10 +118,11 @@ exports.productEntryLogsRouter.put('/refeed/:stationId', (req, res) => __awaiter
         }
         const { variant } = req.body;
         const stationId = Number(req.params.stationId);
+        const plantId = user.plantId;
         if (!variant || isNaN(stationId)) {
             return res.status(400).json({ error: "variant and valid stationId are required" });
         }
-        yield (0, productEntryHelper_1.handleProductShift)(variant, stationId);
+        yield (0, productEntryHelper_1.handleProductShift)(variant, plantId, stationId);
         res.json({ message: "Product re-fed successfully at the specified station." });
     }
     catch (error) {
