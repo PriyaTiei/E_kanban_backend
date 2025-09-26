@@ -22,6 +22,13 @@ const API_URL = process.env.PRODUCT_ENTRY_API;
 const BEARER_TOKEN = process.env.AMRUTH_API_TOKEN;
 const POLL_INTERVAL_MS = 5000;
 const SETTING_KEY = "last_processed_timestamp";
+function formatDateFloorSeconds(dateString) {
+    const d = new Date(dateString);
+    // Floor seconds (remove milliseconds, don't round)
+    d.setMilliseconds(0);
+    // Format as YYYY-MM-DDTHH:mm:ss
+    return d.toISOString().slice(0, 19);
+}
 function pollEntries() {
     return __awaiter(this, void 0, void 0, function* () {
         const plantId = 1;
@@ -44,13 +51,17 @@ function pollEntries() {
                 // Sort oldest to newest
                 const sorted = entries
                     .slice(0, 10)
-                    .filter((e) => new Date(e.created_at) > lastProcessedDate)
-                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                    .filter((e) => new Date(e.created_at) > lastProcessedDate
+                    && ((Number(e.id_number) >= 300 && Number(e.id_number) < 400) || (Number(e.id_number) >= 400 && Number(e.id_number) < 500))).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                 console.log(`📦 Found ${sorted.length} new entries since last processed at ${lastProcessedDate.toLocaleString()}: `, sorted);
                 for (const entry of sorted) {
                     console.log(`⚙️ Processing ${entry.id_number} at ${entry.created_at}`);
                     yield (0, productEntryHelper_1.handleProductShift)(entry.id_number, plantId);
-                    yield (0, settingsService_1.setSetting)(SETTING_KEY, entry.created_at);
+                }
+                // ✅ Update last processed timestamp only once, based on the last entry
+                if (sorted.length > 0) {
+                    const lastEntry = sorted[sorted.length - 1];
+                    yield (0, settingsService_1.setSetting)(SETTING_KEY, new Date(new Date(lastEntry.created_at).getTime() + 1000).toISOString());
                 }
             }
         }

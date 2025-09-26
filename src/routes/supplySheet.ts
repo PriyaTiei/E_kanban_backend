@@ -1,11 +1,13 @@
 import express from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products, stationParts } from "../db/schema";
-import { eq, and, asc, count, sql, inArray } from "drizzle-orm";
+import { eq, and, asc, count, sql, inArray, or, ilike } from "drizzle-orm";
 import { KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
 
 export const supplySheetRouter = express.Router();
+
+// *****Joining with stationParts based on partId might incorrect data since partId in stationParts is not unique*****
 
 supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
   try {
@@ -14,6 +16,9 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const processFilter = req.query.process ? Number(req.query.process) : null;
+    const searchFilter = req.query.search ? String(req.query.search) : null;
+    console.log(`Search filter: ${searchFilter}`);
+    
     const plantId = user.plantId;
 
     // pagination details from query params, e.g., /kanbans?page=1&limit=20
@@ -21,16 +26,27 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
     const offset = (page - 1) * limit;
 
-    const whereClause = and(
+    let whereClause = and(
           eq(kanbanRequests.acknowledgedByLogistics, true),
           eq(kanbanRequests.fulfilled, false),
-          eq(kanbanRequests.plantId, plantId!)
+          eq(kanbanRequests.plantId, plantId!),
         );
+    
+    if (searchFilter) {
+      whereClause = and(whereClause, 
+        or(
+          ilike(parts.partId, `%${searchFilter}%`),
+          ilike(stationParts.prepLocation, `%${searchFilter}%`),
+          ilike(stationParts.supplyLocation, `%${searchFilter}%`)
+        )
+      );
+    }
 
     // query for all unique processes
     const processes = await db
       .selectDistinct({ process: stationParts.process })
       .from(kanbanRequests)
+      .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
       .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
       .where(whereClause)
       .orderBy(asc(stationParts.process));
@@ -73,6 +89,8 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       const total = await db
         .select({ total: count() })
         .from(kanbanRequests)
+        .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .where(whereClause);
 
       const totalPages = Math.ceil((total[0]?.total ?? 0) / limit);
@@ -104,6 +122,7 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       const total = await db
         .select({ total: count() })
         .from(kanbanRequests)
+        .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
         .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .where(and(whereClause, eq(stationParts.process, processFilter)));
 
@@ -183,6 +202,60 @@ supplySheetRouter.put("/kanban", async (req, res): Promise<any> => {
     return res.status(200).json({ message: "Kanban updated successfully", updatedKanbans: result });
   } catch (error: any) {
     console.error("Error updating kanban:", error);
+    return res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+supplySheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
+  const user = req.session.user;
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const isAuthorized = user.role === "admin" || user.role === "logistics";
+  if (!isAuthorized) {
+    return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
+  }
+  
+  const { process } = req.query;
+  console.log(`Received request to update all kanban in supply list ${process && `for process: ${process}`}`);
+  
+  try {
+    const plantId = user.plantId;
+    const fulfilled = true;
+    const fulfilledAt = new Date();
+    const whereClause = and(
+          eq(kanbanRequests.acknowledgedByLogistics, true),
+          eq(kanbanRequests.plantId, plantId),
+          process ? eq(stationParts.process, Number(process)) : sql`1=1`
+        );
+
+    const kanbansToUpdate = await db
+    .select({ id: kanbanRequests.id })
+    .from(kanbanRequests)
+    .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+    .where(whereClause)
+    .orderBy(asc(kanbanRequests.requestedAt));
+
+    if (kanbansToUpdate.length === 0) {
+      console.log("Kanban not found");
+      return res.status(404).json({ message: "Kanban not found" });
+    }
+
+    const result = await db
+    .update(kanbanRequests)
+    .set({ fulfilled, fulfilledAt })
+    .where(inArray(kanbanRequests.id, kanbansToUpdate.map(k => k.id)))
+    .returning();
+
+    if (result.length === 0) {
+      console.log("Kanban not found");
+      return res.status(404).json({ message: "Kanban not found" });
+    }
+
+    console.log("Supply Kanbans updated successfully:", result); 
+    return res.status(200).json({ message: "Kanban updated successfully", updatedKanbans: result });
+  } catch (error: any) {
+    console.log("Error updating kanban:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
   }
 });

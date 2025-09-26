@@ -1,7 +1,7 @@
 import express from "express";
 import { db } from "../db/client";
 import { kanbanRequests, stations, parts, products, frozenKanbans, processFreezeState, stationParts } from "../db/schema";
-import { eq, and, asc, count, sql, inArray } from "drizzle-orm";
+import { eq, and, asc, count, sql, inArray, or, ilike } from "drizzle-orm";
 import { KanbanCreateRequest, KanbanEntry, KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
 import { lookupCache } from "../lib/lookupCache";
@@ -17,6 +17,8 @@ const selectKanbanFields = {
     prepLocation: stationParts.prepLocation,
 }
 
+// *****Joining with stationParts based on partId might incorrect data since partId in stationParts is not unique*****
+
 preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
   try {
     const user = req.session.user;
@@ -28,6 +30,9 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
 
     // Process filter from query params, e.g., /kanbans?process=1
     const processFilter = req.query.process ? Number(req.query.process) : null;
+    const searchFilter = req.query.search ? String(req.query.search) : null;
+    console.log(`Search filter: ${searchFilter}`);
+
     // pagination details from query params, e.g., /kanbans?page=1&limit=20
     const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
     const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
@@ -35,14 +40,26 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
 
     
     // Base where clause for acknowledgedByLogistics and plant scope
-    const baseWhereClause = and(
+    let baseWhereClause = and(
       eq(kanbanRequests.acknowledgedByLogistics, false),
       eq(kanbanRequests.plantId, plantId)
     );
+
+    if (searchFilter) {
+          baseWhereClause = and(baseWhereClause, 
+            or(
+              ilike(parts.partId, `%${searchFilter}%`),
+              ilike(stationParts.prepLocation, `%${searchFilter}%`),
+              ilike(stationParts.supplyLocation, `%${searchFilter}%`)
+            )
+          );
+        }
+
     // query for all unique processes
     const processes = await db
       .selectDistinct({ process: stationParts.process })
       .from(kanbanRequests)
+      .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
       .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
       .where(baseWhereClause)
       .orderBy(asc(stationParts.process));
@@ -76,6 +93,8 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         const total = await db
         .select({ total: count() })
         .from(kanbanRequests)
+        .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .where(baseWhereClause);
 
         const totalPages = Math.ceil((total[0]?.total ?? 0) / limit);
@@ -112,6 +131,8 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .select({ total: count() })
         .from(frozenKanbans)
         .innerJoin(kanbanRequests, eq(frozenKanbans.kanbanId, kanbanRequests.id))
+        .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .where(and(eq(frozenKanbans.process, processFilter), baseWhereClause));
 
       const totalPages = Math.ceil((totalFrozen[0]?.total ?? 0) / limit);
@@ -134,6 +155,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       const totalUnfrozen = await db
         .select({ total: count() })
         .from(kanbanRequests)
+        .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
         .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
         .where(and(baseWhereClause, eq(stationParts.process, processFilter)));
 
@@ -164,6 +186,7 @@ preparationSheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
       plantWhereClause
     );
 
+    // Joining with stationParts based on partId might incorrect data since partId in stationParts is not unique
     const result = await db
       .select({ total: count() })
       .from(kanbanRequests)
@@ -204,6 +227,59 @@ preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
     .update(kanbanRequests)
     .set({ acknowledgedByLogistics, acknowledgedAt })
     .where(inArray(kanbanRequests.id, kanbanIds))
+    .returning();
+
+    if (result.length === 0) {
+      console.log("Kanban not found");
+      return res.status(404).json({ message: "Kanban not found" });
+    }
+
+    return res.status(200).json({ message: "Kanban updated successfully", updatedKanbans: result });
+  } catch (error: any) {
+    console.log("Error updating kanban:", error);
+    return res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+preparationSheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
+  const user = req.session.user;
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const isAuthorized = user.role === "admin" || user.role === "logistics";
+  if (!isAuthorized) {
+    return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
+  }
+  
+  const { process } = req.query;
+  console.log(`Received request to update all kanban in prep list ${process && `for process: ${process}`}`);
+  
+  try {
+    const plantId = user.plantId;
+    const acknowledgedByLogistics = true;
+    const acknowledgedAt = new Date();
+    const whereClause = and(
+          eq(kanbanRequests.acknowledgedByLogistics, false),
+          eq(kanbanRequests.plantId, plantId),
+          process ? eq(stationParts.process, Number(process)) : sql`1=1`
+        );
+
+    const kanbansToUpdate = await db
+    .select({ id: kanbanRequests.id })
+    .from(kanbanRequests)
+    .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+    .where(whereClause)
+    .orderBy(asc(kanbanRequests.requestedAt));
+
+    if (kanbansToUpdate.length === 0) {
+      console.log("Kanban not found");
+      return res.status(404).json({ message: "Kanban not found" });
+    }
+
+    const result = await db
+    .update(kanbanRequests)
+    .set({ acknowledgedByLogistics, acknowledgedAt })
+    .where(inArray(kanbanRequests.id, kanbansToUpdate.map(k => k.id)))
     .returning();
 
     if (result.length === 0) {
@@ -275,8 +351,8 @@ preparationSheetRouter.post("/kanbans/freeze", async (req, res): Promise<any> =>
       const freezeTimestamp = new Date();
 
       const upsertProcessFreeze = sql`
-        INSERT INTO process_freeze_state (process, plant_id is_frozen, frozen_at)
-        VALUES (${process}, ${plantId} true, ${freezeTimestamp})
+        INSERT INTO process_freeze_state (process, plant_id, is_frozen, frozen_at)
+        VALUES (${process}, ${plantId}, true, ${freezeTimestamp})
         ON CONFLICT (process) DO UPDATE
           SET is_frozen = true,
               frozen_at = EXCLUDED.frozen_at
