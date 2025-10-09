@@ -12,6 +12,14 @@ const upload = multer({ dest: uploadDir });
 export const uploadChunks = express.Router();
 
 uploadChunks.post('/excel-update', upload.single('chunk'), async (req, res): Promise<any> => {
+  if(!req.session.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if(req.session.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  
   try {
     const { fileId, chunkIndex, totalChunks, fileName } = req.body;
     const chunk = req.file;

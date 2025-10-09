@@ -37,10 +37,11 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
             return res.status(401).json({ error: "Unauthorized" });
         }
         const plantId = user.plantId;
+        console.log(`plantId: ${plantId}`);
         // Process filter from query params, e.g., /kanbans?process=1
-        const processFilter = req.query.process ? Number(req.query.process) : null;
+        const processFilter = req.query.process ? String(req.query.process) : null;
         const searchFilter = req.query.search ? String(req.query.search) : null;
-        console.log(`Search filter: ${searchFilter}`);
+        console.log(`processFilter: ${processFilter}, searchFilter: ${searchFilter}`);
         // pagination details from query params, e.g., /kanbans?page=1&limit=20
         const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
         const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
@@ -157,7 +158,7 @@ exports.preparationSheetRouter.get("/kanbans/count", (req, res) => __awaiter(voi
         if (!user) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const process = ((_a = req.query) === null || _a === void 0 ? void 0 : _a.process) ? Number(req.query.process) : null;
+        const process = ((_a = req.query) === null || _a === void 0 ? void 0 : _a.process) ? String(req.query.process) : null;
         const plantId = user.plantId;
         const baseWhereClause = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false);
         const processWhereClause = process ? (0, drizzle_orm_1.eq)(schema_1.stationParts.process, process) : (0, drizzle_orm_1.sql) `1=1`;
@@ -226,7 +227,7 @@ exports.preparationSheetRouter.put("/kanban/all", (req, res) => __awaiter(void 0
         const plantId = user.plantId;
         const acknowledgedByLogistics = true;
         const acknowledgedAt = new Date();
-        const whereClause = (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId), process ? (0, drizzle_orm_1.eq)(schema_1.stationParts.process, Number(process)) : (0, drizzle_orm_1.sql) `1=1`);
+        const whereClause = (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId), process ? (0, drizzle_orm_1.eq)(schema_1.stationParts.process, String(process)) : (0, drizzle_orm_1.sql) `1=1`);
         const kanbansToUpdate = yield client_1.db
             .select({ id: schema_1.kanbanRequests.id })
             .from(schema_1.kanbanRequests)

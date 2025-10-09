@@ -1,17 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.settings = exports.kanbanActions = exports.processFreezeState = exports.frozenKanbans = exports.kanbanRequests = exports.users = exports.productEntryLogs = exports.productPartExceptions = exports.stationParts = exports.parts = exports.stations = exports.plants = exports.products = exports.kanbanActionTypeEnum = exports.userRoleEnum = void 0;
+exports.settings = exports.kanbanActions = exports.processFreezeState = exports.frozenKanbans = exports.kanbanRequests = exports.users = exports.productEntryLogs = exports.productPartExceptions = exports.stationParts = exports.parts = exports.stations = exports.products = exports.plants = exports.kanbanActionTypeEnum = exports.userRoleEnum = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 exports.userRoleEnum = (0, pg_core_1.pgEnum)("user_role", ["logistics", "supplier", "admin"]);
 exports.kanbanActionTypeEnum = (0, pg_core_1.pgEnum)("kanban_action_type", ["created", "acknowledged", "fulfilled"]);
-exports.products = (0, pg_core_1.pgTable)("products", {
-    id: (0, pg_core_1.serial)("id").primaryKey(),
-    variant: (0, pg_core_1.varchar)("variant", { length: 50 }).notNull().unique(),
-});
 exports.plants = (0, pg_core_1.pgTable)("plants", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
     name: (0, pg_core_1.varchar)("name", { length: 100 }).notNull().unique(),
     plantId: (0, pg_core_1.integer)("plant_id").unique(),
+});
+exports.products = (0, pg_core_1.pgTable)("products", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    variant: (0, pg_core_1.varchar)("variant", { length: 50 }).notNull().unique(),
+    plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id, { onDelete: "cascade" }).notNull().default(1),
 });
 exports.stations = (0, pg_core_1.pgTable)("stations", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
@@ -24,6 +25,7 @@ exports.parts = (0, pg_core_1.pgTable)("parts", {
     partId: (0, pg_core_1.varchar)("part_id", { length: 50 }),
     partNumber: (0, pg_core_1.varchar)("part_number", { length: 50 }),
     description: (0, pg_core_1.text)("description"),
+    plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id, { onDelete: "cascade" }).notNull().default(1),
 });
 exports.stationParts = (0, pg_core_1.pgTable)("station_parts", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
@@ -31,7 +33,7 @@ exports.stationParts = (0, pg_core_1.pgTable)("station_parts", {
     stationId: (0, pg_core_1.integer)("station_id").references(() => exports.stations.id, { onDelete: "cascade" }).notNull(),
     partId: (0, pg_core_1.integer)("part_id").references(() => exports.parts.id, { onDelete: "cascade" }).notNull(),
     allowed_for_all_products: (0, pg_core_1.boolean)("allowed_for_all_products").default(true).notNull(),
-    process: (0, pg_core_1.integer)("process"),
+    process: (0, pg_core_1.varchar)("process", { length: 20 }),
     prepLocation: (0, pg_core_1.varchar)("prep-location", { length: 50 }),
     supplyLocation: (0, pg_core_1.varchar)("supply-location", { length: 50 }),
     consumptionPerProduct: (0, pg_core_1.integer)("consumption_per_product").notNull(),
@@ -43,6 +45,7 @@ exports.stationParts = (0, pg_core_1.pgTable)("station_parts", {
 exports.productPartExceptions = (0, pg_core_1.pgTable)("product_part_exceptions", {
     productId: (0, pg_core_1.integer)("product_id").references(() => exports.products.id, { onDelete: "cascade" }).notNull(),
     partId: (0, pg_core_1.integer)("part_id").references(() => exports.parts.id, { onDelete: "cascade" }).notNull(),
+    plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id, { onDelete: "cascade" }).notNull().default(1),
 }, (table) => {
     return [(0, pg_core_1.primaryKey)({ columns: [table.productId, table.partId] })];
 });
@@ -74,12 +77,12 @@ exports.kanbanRequests = (0, pg_core_1.pgTable)("kanban_requests", {
 });
 exports.frozenKanbans = (0, pg_core_1.pgTable)("frozen_kanbans", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
-    process: (0, pg_core_1.integer)("process").notNull(),
+    process: (0, pg_core_1.varchar)("process", { length: 20 }).notNull(),
     kanbanId: (0, pg_core_1.integer)("kanban_id").references(() => exports.kanbanRequests.id, { onDelete: "cascade" }).notNull(),
     frozenAt: (0, pg_core_1.timestamp)("frozen_at", { withTimezone: true }).defaultNow().notNull(),
 });
 exports.processFreezeState = (0, pg_core_1.pgTable)("process_freeze_state", {
-    process: (0, pg_core_1.integer)("process").primaryKey(),
+    process: (0, pg_core_1.varchar)("process", { length: 20 }).primaryKey(),
     plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id, { onDelete: "cascade" }).default(1),
     isFrozen: (0, pg_core_1.boolean)("is_frozen").notNull().default(false),
     frozenAt: (0, pg_core_1.timestamp)("frozen_at", { withTimezone: true }),

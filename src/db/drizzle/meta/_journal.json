@@ -155,6 +155,27 @@
       "when": 1757860457792,
       "tag": "0021_pale_lady_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1759211065544,
+      "tag": "0022_melted_lila_cheney",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1759213335804,
+      "tag": "0023_new_lady_deathstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1759215387171,
+      "tag": "0024_shocking_revanche",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import { db } from '../db/client';
 import { productEntryLogs, products, stations } from '../db/schema';
 import { eq, sql } from "drizzle-orm";
 import { handleProductShift } from "../lib/productEntryHelper";
+import { lookupCache } from '../lib/lookupCache';
 
 export const productEntryLogsRouter = express.Router();
 
@@ -123,7 +124,7 @@ productEntryLogsRouter.put('/refeed/:stationId', async (req, res): Promise<any> 
       return res.status(400).json({ error: "variant and valid stationId are required" });
     }
 
-    await handleProductShift(variant, plantId, stationId);
+    await handleProductShift(variant, plantId, lookupCache, stationId);
 
     res.json({ message: "Product re-fed successfully at the specified station." });
   } catch (error) {

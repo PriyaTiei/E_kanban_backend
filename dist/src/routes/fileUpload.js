@@ -24,6 +24,12 @@ const uploadDir = path_1.default.resolve(process.cwd(), 'uploads');
 const upload = (0, multer_1.default)({ dest: uploadDir });
 exports.uploadChunks = express_1.default.Router();
 exports.uploadChunks.post('/excel-update', upload.single('chunk'), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
     try {
         const { fileId, chunkIndex, totalChunks, fileName } = req.body;
         const chunk = req.file;

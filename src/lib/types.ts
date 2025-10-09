@@ -1,3 +1,5 @@
+import { PgTransaction } from "drizzle-orm/pg-core";
+
 // Extend session type
 declare module "express-session" {
   interface SessionData {
@@ -51,3 +53,5 @@ export interface suppliedKanban {
   WIP_LOCATION: string,
   SCAN_SYS_DATE: string
 }
+
+export type txType = PgTransaction<any, typeof import("/home/tnga_iot/shiva/E_kanban_GD/E_kanban_backend/src/db/schema"), any>

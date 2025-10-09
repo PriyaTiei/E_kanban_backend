@@ -53,18 +53,18 @@ async function start() {
         res.redirect("/station-parts");
     });
 
-    // Initialize cache
-    await lookupCache.initialize();
-
+    
     // Public routes
     app.use('/supply', amruthUpdateRouter);
     // app.use("/sensor-trigger", sensorTriggerRouter);
     app.use("/auth", userAuthRouter); // Allow login/logout/session check without auth
 
     // Auth middleware for all other routes
-    app.use((req, res, next) => {
+    app.use(async (req, res, next) => {
       
       if (req.session.user) {
+        // Initialize cache
+        await lookupCache.initialize(req.session.user.plantId);
         return next();
       }
       res.status(401).json({ error: "Not authenticated" });

@@ -11,14 +11,14 @@ import { eq, and, like } from "drizzle-orm";
 import { lookupCache, LookupCache } from "./lookupCache";
 import { insertNewVariant } from "./productEntryHelper";
 import { PgTransaction } from "drizzle-orm/pg-core";
+import { txType } from "./types";
 
 type Result = { success: true; message?: string } | { success: false; error: string };
 type HeaderMap = Record<string, number>;
-type txType = PgTransaction<any, typeof import("/home/tnga_iot/shiva/E_kanban_GD/E_kanban_backend/src/db/schema"), any>
 
 function makeError(msg: string, err?: unknown): Result {
   console.error("❌ Error:", msg, err instanceof Error ? err.stack : err);
-  return { success: false, error: msg };
+  throw new Error(msg);
 }
 
 function getHeaderMap(row: ExcelJS.Row): HeaderMap {
@@ -32,9 +32,12 @@ function getHeaderMap(row: ExcelJS.Row): HeaderMap {
 }
 
 /* ---------------- PRODUCTS ---------------- */
-async function processProducts(sheet: ExcelJS.Worksheet, tx: txType): Promise<Result> {
-  const dbVariants = new Set(
-    (await tx.select({ variant: products.variant }).from(products)).map(
+async function processProducts(sheet: ExcelJS.Worksheet, tx: txType, plantId: number): Promise<Result> {
+  const dbVariants = new Set((
+    await tx.select({ variant: products.variant })
+      .from(products)
+      .where(eq(products.plantId, plantId))
+    ).map(
       (row) => row.variant
     )
   );
@@ -54,7 +57,7 @@ async function processProducts(sheet: ExcelJS.Worksheet, tx: txType): Promise<Re
 
     if (!dbVariants.has(variant)) {
       try {
-        await tx.insert(products).values({ variant });
+        await tx.insert(products).values({ variant, plantId });
       } catch (err) {
         return makeError(
           `Failed to insert product '${variant}' (row ${row.number})`,
@@ -68,9 +71,12 @@ async function processProducts(sheet: ExcelJS.Worksheet, tx: txType): Promise<Re
 }
 
 /* ---------------- STATIONS ---------------- */
-async function processStations(sheet: ExcelJS.Worksheet, tx: txType): Promise<Result> {
-  const dbNames = new Set(
-    (await tx.select({ name: stations.name }).from(stations)).map(
+async function processStations(sheet: ExcelJS.Worksheet, tx: txType, plantId: number): Promise<Result> {
+  const dbNames = new Set((
+    await tx.select({ name: stations.name })
+      .from(stations)
+      .where(eq(stations.plantId, plantId))
+    ).map(
       (row) => row.name
     )
   );
@@ -84,14 +90,14 @@ async function processStations(sheet: ExcelJS.Worksheet, tx: txType): Promise<Re
     }
 
     const name = row.getCell(headerMap["name"]).value?.toString().trim();
-    const plant = row.getCell(headerMap["plant"]).value?.toString().trim();
+    // const plant = row.getCell(headerMap["plant"]).value?.toString().trim();
 
-    if (!name || !plant) continue;
+    if (!name) continue;
     excelNames.add(name);
 
     if (!dbNames.has(name)) {
       try {
-        const plantId = lookupCache.getPlantId(plant);
+        // const plantId = lookupCache.getPlantId(plant);
         await tx.insert(stations).values({ name, plantId });
       } catch (err) {
         return makeError(
@@ -117,9 +123,12 @@ async function processStations(sheet: ExcelJS.Worksheet, tx: txType): Promise<Re
 }
 
 /* ---------------- PARTS ---------------- */
-async function processParts(sheet: ExcelJS.Worksheet, tx: txType): Promise<Result> {
-  const dbPartIds = new Set(
-    (await tx.select({ partId: parts.partId }).from(parts)).map(
+async function processParts(sheet: ExcelJS.Worksheet, tx: txType, plantId: number): Promise<Result> {
+  const dbPartIds = new Set((
+    await tx.select({ partId: parts.partId })
+      .from(parts)
+      .where(eq(parts.plantId, plantId))
+    ).map(
       (row) => row.partId
     )
   );
@@ -133,18 +142,42 @@ async function processParts(sheet: ExcelJS.Worksheet, tx: txType): Promise<Resul
     }
 
     const partId = row.getCell(headerMap["partId"]).value?.toString().trim();
-    const name = row.getCell(headerMap["name"]).value?.toString().trim();
-    const partNumber = row.getCell(headerMap["partNumber"]).value?.toString().trim();
+    let name = row.getCell(headerMap["name"]).value?.toString().trim();
+    let partNumber = row.getCell(headerMap["partNumber"]).value?.toString().trim();
 
-    if (!partId || !name || !partNumber) continue;
+    if (!partId) continue;
     excelPartIds.add(partId);
 
     if (!dbPartIds.has(partId)) {
       try {
-        await tx.insert(parts).values({ partId, name, partNumber });
+        name = name || "";
+        partNumber = partNumber || "";
+        const result = await tx.insert(parts).values({ partId, name, partNumber, plantId }).returning({id: parts.id});
+        // console.log("Inserted new part:", result[0].id, partId, name, partNumber);
+        
       } catch (err) {
         return makeError(
           `Failed to insert part '${partId}' (row ${row.number})`,
+          err
+        );
+      }
+    } else {
+      // Optionally update existing part's name or partNumber if changed
+      try {
+        const dbPart = await tx.select()
+          .from(parts)
+          .where(and(eq(parts.partId, partId), eq(parts.plantId, plantId)));
+        if (dbPart.length === 1) {
+          const updates: any = {};
+          if (name && dbPart[0].name !== name) updates.name = name;
+          if (partNumber && dbPart[0].partNumber !== partNumber) updates.partNumber = partNumber;
+          if (Object.keys(updates).length > 0) {
+            await tx.update(parts).set(updates).where(eq(parts.partId, partId));
+          }
+        }
+      } catch (err) {
+        return makeError(
+          `Failed to update part '${partId}' (row ${row.number})`,
           err
         );
       }
@@ -166,8 +199,10 @@ async function processParts(sheet: ExcelJS.Worksheet, tx: txType): Promise<Resul
 }
 
 /* ---------------- STATION PARTS ---------------- */
-async function processStationParts(sheet: ExcelJS.Worksheet, tx: txType): Promise<Result> {
-  const dbStationParts = await tx.select().from(stationParts);
+async function processStationParts(sheet: ExcelJS.Worksheet, tx: txType, plantId: number): Promise<Result> {
+  const dbStationParts = await tx.select()
+    .from(stationParts)
+    .where(eq(stationParts.plantId, plantId));
   const stationPartMap = new Map<string, any>();
   dbStationParts.forEach((sp) => {
     stationPartMap.set(`${sp.stationId}_${sp.partId}`, sp);
@@ -186,18 +221,29 @@ async function processStationParts(sheet: ExcelJS.Worksheet, tx: txType): Promis
       continue;
     }
 
-    const station = String(row.getCell(headerMap["stationId"]).value).trim();
-    const part = String(row.getCell(headerMap["partId"]).value).trim();
+    const stationRaw = row.getCell(headerMap["stationId"]).value;
+    const partRaw = row.getCell(headerMap["partId"]).value;
 
+    if(!stationRaw || !partRaw) {
+      console.log(`Skipping row ${row.number} due to missing station or part`);
+      continue;
+    }
+
+    const station = String(stationRaw).trim();
+    const part = String(partRaw).trim();
     let stationId, partId;
     try {
-      stationId = await tx.select({id: stations.id})
+      stationId = await tx.select({id: stations.id, name: stations.name})
         .from(stations)
         .where(like(stations.name, station));
+      // console.log("stationId lookup", stationId);
+      
       stationId = stationId[0].id
-      partId = await tx.select({id: parts.id})
+      partId = await tx.select({id: parts.id, partId: parts.partId})
         .from(parts)
         .where(like(parts.partId, part));
+      // console.log("partId lookup", partId);
+      
       partId = partId[0].id
     } catch (err) {
       return makeError(
@@ -212,7 +258,22 @@ async function processStationParts(sheet: ExcelJS.Worksheet, tx: txType): Promis
 
     const updateData: any = {};
     Object.keys(headerMap).forEach((header) => {
-      let value: any = String(row.getCell(headerMap[header]).value);
+      let cellValue = row.getCell(headerMap[header]).value;
+      
+      // unwrap ExcelJS objects
+      if (typeof cellValue === "object" && cellValue !== null) {
+        console.log(`cellValue: ${JSON.stringify(cellValue, null, 2)}`);
+        if ("result" in cellValue) cellValue = cellValue.result; // for formula cells
+        else if ("text" in cellValue) cellValue = cellValue.text;
+        else if ("richText" in cellValue)
+          cellValue = cellValue.richText.map((t: any) => t.text).join("");
+        else if ("value" in cellValue)
+          cellValue = String(cellValue.value);
+      }
+      if (typeof cellValue === "number") cellValue = Math.round(cellValue);
+      let value: any = String(cellValue).trim();
+      console.log(`value: ${value}`);
+      
       if (header === "stationId") value = stationId;
       if (header === "partId") value = partId;
       updateData[header] = value;
@@ -220,7 +281,7 @@ async function processStationParts(sheet: ExcelJS.Worksheet, tx: txType): Promis
 
     try {
       if (!dbRow) {
-        await tx.insert(stationParts).values(updateData);
+        await tx.insert(stationParts).values({...updateData, plantId});
       } else {
         delete updateData.currentQuantity;
         let needsUpdate = false;
@@ -276,13 +337,14 @@ async function processStationParts(sheet: ExcelJS.Worksheet, tx: txType): Promis
 }
 
 /* ---------------- PRODUCT PART EXCEPTIONS ---------------- */
-async function processProductPartExceptions(sheet: ExcelJS.Worksheet, tx: txType): Promise<Result> {
+async function processProductPartExceptions(sheet: ExcelJS.Worksheet, tx: txType, plantId: number): Promise<Result> {
   const dbExceptions = await tx
     .select({
       productId: productPartExceptions.productId,
       partId: productPartExceptions.partId,
     })
-    .from(productPartExceptions);
+    .from(productPartExceptions)
+    .where(eq(productPartExceptions.plantId, plantId));
 
   const exceptionSet = new Set(dbExceptions.map((e) => `${e.productId}_${e.partId}`));
   const excelExceptionSet = new Set<string>();
@@ -294,8 +356,21 @@ async function processProductPartExceptions(sheet: ExcelJS.Worksheet, tx: txType
       continue;
     }
 
-    const product = String(row.getCell(headerMap["product"]).value).trim();
-    const part = String(row.getCell(headerMap["part"]).value).trim();
+    const productRaw = row.getCell(headerMap["product"]).value;
+    const partRaw = row.getCell(headerMap["part"]).value;
+
+    if(!productRaw || !partRaw) {
+      console.log(`Skipping row ${row.number} due to missing product or part`);
+      continue;
+    }
+
+    const product = String(productRaw).trim();
+    const part = String(partRaw).trim();
+
+    if(!product || !part) {
+      console.log(`Skipping row ${row.number} due to missing product or part`);
+      continue;
+    }
 
     let productId, partId;
     try {
@@ -308,7 +383,7 @@ async function processProductPartExceptions(sheet: ExcelJS.Worksheet, tx: txType
         .where(like(parts.partId, part));
       partId = partId[0].id;
       if (!productId) {
-        const newProductId = await insertNewVariant(product);
+        const newProductId = await insertNewVariant(product, plantId);
         productId = newProductId[0].id;
       }
     } catch (err) {
@@ -323,7 +398,7 @@ async function processProductPartExceptions(sheet: ExcelJS.Worksheet, tx: txType
 
     if (!exceptionSet.has(key)) {
       try {
-        await tx.insert(productPartExceptions).values({ productId, partId });
+        await tx.insert(productPartExceptions).values({ productId, partId, plantId });
       } catch (err) {
         return makeError(
           `Failed to insert productPartException (product=${product}, part=${part})`,
@@ -360,9 +435,18 @@ async function processProductPartExceptions(sheet: ExcelJS.Worksheet, tx: txType
 
 /* ---------------- MAIN FUNCTION ---------------- */
 export async function updateDbFromExcel(filePath: string): Promise<Result> {
-  await lookupCache.initialize();
-
+  
   try {
+    let plantId: number;
+    if (filePath.endsWith("GD.xlsx")) {
+      plantId = 1;
+    } else if (filePath.endsWith("TNGA.xlsx")) {
+      plantId = 2;
+    } else {
+      throw new Error("Invalid filePath: must end with 'GD' or 'TNGA'");
+    }
+    await lookupCache.initialize(plantId);
+
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
 
@@ -370,41 +454,44 @@ export async function updateDbFromExcel(filePath: string): Promise<Result> {
       // Products
       const productsSheet = workbook.getWorksheet("products");
       if (productsSheet) {
-        const res = await processProducts(productsSheet, tx);
-        if (!res.success) return res;
+        await processProducts(productsSheet, tx, plantId);
+        // if (!res.success) return res;
       }
 
       // Stations
       const stationsSheet = workbook.getWorksheet("stations");
       if (stationsSheet) {
-        const res = await processStations(stationsSheet, tx);
-        if (!res.success) return res;
+        await processStations(stationsSheet, tx, plantId);
+        // if (!res.success) return res;
       }
 
       // Parts
       const partsSheet = workbook.getWorksheet("parts");
       if (partsSheet) {
-        const res = await processParts(partsSheet, tx);
-        if (!res.success) return res;
+        await processParts(partsSheet, tx, plantId);
+        // if (!res.success) return res;
       }
 
       // StationParts
       const stationPartsSheet = workbook.getWorksheet("stationParts");
       if (stationPartsSheet) {
-        const res = await processStationParts(stationPartsSheet, tx);
-        if (!res.success) return res;
+        await processStationParts(stationPartsSheet, tx, plantId);
+        // if (!res.success) return res;
       }
 
       // ProductPartExceptions
       const productPartExceptionsSheet = workbook.getWorksheet("productPartExceptions");
       if (productPartExceptionsSheet) {
-        const res = await processProductPartExceptions(productPartExceptionsSheet, tx);
-        if (!res.success) return res;
+        await processProductPartExceptions(productPartExceptionsSheet, tx, plantId);
+        // if (!res.success) return res;
       }
 
       return { success: true, message: "✅ Excel sync completed successfully" };
     });
   } catch (err) {
-    return makeError("Unexpected error while processing Excel", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
   }
 }

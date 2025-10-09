@@ -27,12 +27,13 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     }
 
     const plantId = user.plantId;
+    console.log(`plantId: ${plantId}`);
+    
 
     // Process filter from query params, e.g., /kanbans?process=1
-    const processFilter = req.query.process ? Number(req.query.process) : null;
+    const processFilter = req.query.process ? String(req.query.process) : null;
     const searchFilter = req.query.search ? String(req.query.search) : null;
-    console.log(`Search filter: ${searchFilter}`);
-
+    console.log(`processFilter: ${processFilter}, searchFilter: ${searchFilter}`);
     // pagination details from query params, e.g., /kanbans?page=1&limit=20
     const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
     const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
@@ -175,7 +176,7 @@ preparationSheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const process = req.query?.process ? Number(req.query.process) : null;
+    const process = req.query?.process ? String(req.query.process) : null;
     const plantId = user.plantId;
     const baseWhereClause = eq(kanbanRequests.acknowledgedByLogistics, false);
     const processWhereClause = process ? eq(stationParts.process, process) : sql`1=1`;
@@ -261,7 +262,7 @@ preparationSheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
     const whereClause = and(
           eq(kanbanRequests.acknowledgedByLogistics, false),
           eq(kanbanRequests.plantId, plantId),
-          process ? eq(stationParts.process, Number(process)) : sql`1=1`
+          process ? eq(stationParts.process, String(process)) : sql`1=1`
         );
 
     const kanbansToUpdate = await db

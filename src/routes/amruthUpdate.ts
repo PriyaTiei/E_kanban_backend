@@ -26,7 +26,8 @@ amruthUpdateRouter.get("/kanbans", async (req, res): Promise<any> => {
 
     const kanbans = await db
       .select({
-        id: kanbanRequests.id,
+        id: sql<number>`ROW_NUMBER() OVER (ORDER BY ${orderByClause})`.as('id'),
+        sequenceNo: sql<number>`ROW_NUMBER() OVER (ORDER BY ${orderByClause})`.as('sequenceNo'),
         process: stationParts.process,
         plantId: plants.plantId,
         partId: parts.partId,
@@ -34,7 +35,7 @@ amruthUpdateRouter.get("/kanbans", async (req, res): Promise<any> => {
         partNumber: parts.partNumber,
         boxQty: stationParts.binQuantity,
         supplyLocation: stationParts.supplyLocation,
-        sequenceNo: kanbanRequests.id,
+        // sequenceNo: kanbanRequests.id,
         acknowledgedAt: kanbanRequests.acknowledgedAt,
       })
       .from(kanbanRequests)
@@ -64,6 +65,9 @@ amruthUpdateRouter.get("/kanbans", async (req, res): Promise<any> => {
         }
         return kanban;
       });
+
+      console.log("Count of kanbans for part id 2160: ", ISTDateFormatedResult.filter(k => k.partId === '2160').length);
+      
 
     return res.status(200).json(ISTDateFormatedResult);
   } catch (err: any) {

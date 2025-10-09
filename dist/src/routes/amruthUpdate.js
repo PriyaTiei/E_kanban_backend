@@ -34,7 +34,8 @@ exports.amruthUpdateRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 
     `;
         const kanbans = yield client_1.db
             .select({
-            id: schema_1.kanbanRequests.id,
+            id: (0, drizzle_orm_1.sql) `ROW_NUMBER() OVER (ORDER BY ${orderByClause})`.as('id'),
+            sequenceNo: (0, drizzle_orm_1.sql) `ROW_NUMBER() OVER (ORDER BY ${orderByClause})`.as('sequenceNo'),
             process: schema_1.stationParts.process,
             plantId: schema_1.plants.plantId,
             partId: schema_1.parts.partId,
@@ -42,7 +43,7 @@ exports.amruthUpdateRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 
             partNumber: schema_1.parts.partNumber,
             boxQty: schema_1.stationParts.binQuantity,
             supplyLocation: schema_1.stationParts.supplyLocation,
-            sequenceNo: schema_1.kanbanRequests.id,
+            // sequenceNo: kanbanRequests.id,
             acknowledgedAt: schema_1.kanbanRequests.acknowledgedAt,
         })
             .from(schema_1.kanbanRequests)
@@ -71,6 +72,7 @@ exports.amruthUpdateRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 
             }
             return kanban;
         });
+        console.log("Count of kanbans for part id 2160: ", ISTDateFormatedResult.filter(k => k.partId === '2160').length);
         return res.status(200).json(ISTDateFormatedResult);
     }
     catch (err) {

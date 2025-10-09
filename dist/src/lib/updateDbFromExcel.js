@@ -21,7 +21,7 @@ const lookupCache_1 = require("./lookupCache");
 const productEntryHelper_1 = require("./productEntryHelper");
 function makeError(msg, err) {
     console.error("❌ Error:", msg, err instanceof Error ? err.stack : err);
-    return { success: false, error: msg };
+    throw new Error(msg);
 }
 function getHeaderMap(row) {
     const map = {};
@@ -33,10 +33,12 @@ function getHeaderMap(row) {
     return map;
 }
 /* ---------------- PRODUCTS ---------------- */
-function processProducts(sheet, tx) {
+function processProducts(sheet, tx, plantId) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
-        const dbVariants = new Set((yield tx.select({ variant: schema_1.products.variant }).from(schema_1.products)).map((row) => row.variant));
+        const dbVariants = new Set((yield tx.select({ variant: schema_1.products.variant })
+            .from(schema_1.products)
+            .where((0, drizzle_orm_1.eq)(schema_1.products.plantId, plantId))).map((row) => row.variant));
         const excelVariants = new Set();
         let headerMap = {};
         for (const row of sheet.getRows(1, sheet.rowCount) || []) {
@@ -50,7 +52,7 @@ function processProducts(sheet, tx) {
             excelVariants.add(variant);
             if (!dbVariants.has(variant)) {
                 try {
-                    yield tx.insert(schema_1.products).values({ variant });
+                    yield tx.insert(schema_1.products).values({ variant, plantId });
                 }
                 catch (err) {
                     return makeError(`Failed to insert product '${variant}' (row ${row.number})`, err);
@@ -61,10 +63,12 @@ function processProducts(sheet, tx) {
     });
 }
 /* ---------------- STATIONS ---------------- */
-function processStations(sheet, tx) {
+function processStations(sheet, tx, plantId) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
-        const dbNames = new Set((yield tx.select({ name: schema_1.stations.name }).from(schema_1.stations)).map((row) => row.name));
+        var _a;
+        const dbNames = new Set((yield tx.select({ name: schema_1.stations.name })
+            .from(schema_1.stations)
+            .where((0, drizzle_orm_1.eq)(schema_1.stations.plantId, plantId))).map((row) => row.name));
         const excelNames = new Set();
         let headerMap = {};
         for (const row of sheet.getRows(1, sheet.rowCount) || []) {
@@ -73,13 +77,13 @@ function processStations(sheet, tx) {
                 continue;
             }
             const name = (_a = row.getCell(headerMap["name"]).value) === null || _a === void 0 ? void 0 : _a.toString().trim();
-            const plant = (_b = row.getCell(headerMap["plant"]).value) === null || _b === void 0 ? void 0 : _b.toString().trim();
-            if (!name || !plant)
+            // const plant = row.getCell(headerMap["plant"]).value?.toString().trim();
+            if (!name)
                 continue;
             excelNames.add(name);
             if (!dbNames.has(name)) {
                 try {
-                    const plantId = lookupCache_1.lookupCache.getPlantId(plant);
+                    // const plantId = lookupCache.getPlantId(plant);
                     yield tx.insert(schema_1.stations).values({ name, plantId });
                 }
                 catch (err) {
@@ -102,10 +106,12 @@ function processStations(sheet, tx) {
     });
 }
 /* ---------------- PARTS ---------------- */
-function processParts(sheet, tx) {
+function processParts(sheet, tx, plantId) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b, _c;
-        const dbPartIds = new Set((yield tx.select({ partId: schema_1.parts.partId }).from(schema_1.parts)).map((row) => row.partId));
+        const dbPartIds = new Set((yield tx.select({ partId: schema_1.parts.partId })
+            .from(schema_1.parts)
+            .where((0, drizzle_orm_1.eq)(schema_1.parts.plantId, plantId))).map((row) => row.partId));
         const excelPartIds = new Set();
         let headerMap = {};
         for (const row of sheet.getRows(1, sheet.rowCount) || []) {
@@ -114,17 +120,41 @@ function processParts(sheet, tx) {
                 continue;
             }
             const partId = (_a = row.getCell(headerMap["partId"]).value) === null || _a === void 0 ? void 0 : _a.toString().trim();
-            const name = (_b = row.getCell(headerMap["name"]).value) === null || _b === void 0 ? void 0 : _b.toString().trim();
-            const partNumber = (_c = row.getCell(headerMap["partNumber"]).value) === null || _c === void 0 ? void 0 : _c.toString().trim();
-            if (!partId || !name || !partNumber)
+            let name = (_b = row.getCell(headerMap["name"]).value) === null || _b === void 0 ? void 0 : _b.toString().trim();
+            let partNumber = (_c = row.getCell(headerMap["partNumber"]).value) === null || _c === void 0 ? void 0 : _c.toString().trim();
+            if (!partId)
                 continue;
             excelPartIds.add(partId);
             if (!dbPartIds.has(partId)) {
                 try {
-                    yield tx.insert(schema_1.parts).values({ partId, name, partNumber });
+                    name = name || "";
+                    partNumber = partNumber || "";
+                    const result = yield tx.insert(schema_1.parts).values({ partId, name, partNumber, plantId }).returning({ id: schema_1.parts.id });
+                    // console.log("Inserted new part:", result[0].id, partId, name, partNumber);
                 }
                 catch (err) {
                     return makeError(`Failed to insert part '${partId}' (row ${row.number})`, err);
+                }
+            }
+            else {
+                // Optionally update existing part's name or partNumber if changed
+                try {
+                    const dbPart = yield tx.select()
+                        .from(schema_1.parts)
+                        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parts.partId, partId), (0, drizzle_orm_1.eq)(schema_1.parts.plantId, plantId)));
+                    if (dbPart.length === 1) {
+                        const updates = {};
+                        if (name && dbPart[0].name !== name)
+                            updates.name = name;
+                        if (partNumber && dbPart[0].partNumber !== partNumber)
+                            updates.partNumber = partNumber;
+                        if (Object.keys(updates).length > 0) {
+                            yield tx.update(schema_1.parts).set(updates).where((0, drizzle_orm_1.eq)(schema_1.parts.partId, partId));
+                        }
+                    }
+                }
+                catch (err) {
+                    return makeError(`Failed to update part '${partId}' (row ${row.number})`, err);
                 }
             }
         }
@@ -143,9 +173,11 @@ function processParts(sheet, tx) {
     });
 }
 /* ---------------- STATION PARTS ---------------- */
-function processStationParts(sheet, tx) {
+function processStationParts(sheet, tx, plantId) {
     return __awaiter(this, void 0, void 0, function* () {
-        const dbStationParts = yield tx.select().from(schema_1.stationParts);
+        const dbStationParts = yield tx.select()
+            .from(schema_1.stationParts)
+            .where((0, drizzle_orm_1.eq)(schema_1.stationParts.plantId, plantId));
         const stationPartMap = new Map();
         dbStationParts.forEach((sp) => {
             stationPartMap.set(`${sp.stationId}_${sp.partId}`, sp);
@@ -164,17 +196,25 @@ function processStationParts(sheet, tx) {
                 });
                 continue;
             }
-            const station = String(row.getCell(headerMap["stationId"]).value).trim();
-            const part = String(row.getCell(headerMap["partId"]).value).trim();
+            const stationRaw = row.getCell(headerMap["stationId"]).value;
+            const partRaw = row.getCell(headerMap["partId"]).value;
+            if (!stationRaw || !partRaw) {
+                console.log(`Skipping row ${row.number} due to missing station or part`);
+                continue;
+            }
+            const station = String(stationRaw).trim();
+            const part = String(partRaw).trim();
             let stationId, partId;
             try {
-                stationId = yield tx.select({ id: schema_1.stations.id })
+                stationId = yield tx.select({ id: schema_1.stations.id, name: schema_1.stations.name })
                     .from(schema_1.stations)
                     .where((0, drizzle_orm_1.like)(schema_1.stations.name, station));
+                // console.log("stationId lookup", stationId);
                 stationId = stationId[0].id;
-                partId = yield tx.select({ id: schema_1.parts.id })
+                partId = yield tx.select({ id: schema_1.parts.id, partId: schema_1.parts.partId })
                     .from(schema_1.parts)
                     .where((0, drizzle_orm_1.like)(schema_1.parts.partId, part));
+                // console.log("partId lookup", partId);
                 partId = partId[0].id;
             }
             catch (err) {
@@ -185,7 +225,23 @@ function processStationParts(sheet, tx) {
             const dbRow = stationPartMap.get(key);
             const updateData = {};
             Object.keys(headerMap).forEach((header) => {
-                let value = String(row.getCell(headerMap[header]).value);
+                let cellValue = row.getCell(headerMap[header]).value;
+                // unwrap ExcelJS objects
+                if (typeof cellValue === "object" && cellValue !== null) {
+                    console.log(`cellValue: ${JSON.stringify(cellValue, null, 2)}`);
+                    if ("result" in cellValue)
+                        cellValue = cellValue.result; // for formula cells
+                    else if ("text" in cellValue)
+                        cellValue = cellValue.text;
+                    else if ("richText" in cellValue)
+                        cellValue = cellValue.richText.map((t) => t.text).join("");
+                    else if ("value" in cellValue)
+                        cellValue = String(cellValue.value);
+                }
+                if (typeof cellValue === "number")
+                    cellValue = Math.round(cellValue);
+                let value = String(cellValue).trim();
+                console.log(`value: ${value}`);
                 if (header === "stationId")
                     value = stationId;
                 if (header === "partId")
@@ -194,7 +250,7 @@ function processStationParts(sheet, tx) {
             });
             try {
                 if (!dbRow) {
-                    yield tx.insert(schema_1.stationParts).values(updateData);
+                    yield tx.insert(schema_1.stationParts).values(Object.assign(Object.assign({}, updateData), { plantId }));
                 }
                 else {
                     delete updateData.currentQuantity;
@@ -235,14 +291,15 @@ function processStationParts(sheet, tx) {
     });
 }
 /* ---------------- PRODUCT PART EXCEPTIONS ---------------- */
-function processProductPartExceptions(sheet, tx) {
+function processProductPartExceptions(sheet, tx, plantId) {
     return __awaiter(this, void 0, void 0, function* () {
         const dbExceptions = yield tx
             .select({
             productId: schema_1.productPartExceptions.productId,
             partId: schema_1.productPartExceptions.partId,
         })
-            .from(schema_1.productPartExceptions);
+            .from(schema_1.productPartExceptions)
+            .where((0, drizzle_orm_1.eq)(schema_1.productPartExceptions.plantId, plantId));
         const exceptionSet = new Set(dbExceptions.map((e) => `${e.productId}_${e.partId}`));
         const excelExceptionSet = new Set();
         let headerMap = {};
@@ -251,8 +308,18 @@ function processProductPartExceptions(sheet, tx) {
                 headerMap = getHeaderMap(row);
                 continue;
             }
-            const product = String(row.getCell(headerMap["product"]).value).trim();
-            const part = String(row.getCell(headerMap["part"]).value).trim();
+            const productRaw = row.getCell(headerMap["product"]).value;
+            const partRaw = row.getCell(headerMap["part"]).value;
+            if (!productRaw || !partRaw) {
+                console.log(`Skipping row ${row.number} due to missing product or part`);
+                continue;
+            }
+            const product = String(productRaw).trim();
+            const part = String(partRaw).trim();
+            if (!product || !part) {
+                console.log(`Skipping row ${row.number} due to missing product or part`);
+                continue;
+            }
             let productId, partId;
             try {
                 productId = yield tx.select({ id: schema_1.products.id })
@@ -264,7 +331,7 @@ function processProductPartExceptions(sheet, tx) {
                     .where((0, drizzle_orm_1.like)(schema_1.parts.partId, part));
                 partId = partId[0].id;
                 if (!productId) {
-                    const newProductId = yield (0, productEntryHelper_1.insertNewVariant)(product);
+                    const newProductId = yield (0, productEntryHelper_1.insertNewVariant)(product, plantId);
                     productId = newProductId[0].id;
                 }
             }
@@ -275,7 +342,7 @@ function processProductPartExceptions(sheet, tx) {
             excelExceptionSet.add(key);
             if (!exceptionSet.has(key)) {
                 try {
-                    yield tx.insert(schema_1.productPartExceptions).values({ productId, partId });
+                    yield tx.insert(schema_1.productPartExceptions).values({ productId, partId, plantId });
                 }
                 catch (err) {
                     return makeError(`Failed to insert productPartException (product=${product}, part=${part})`, err);
@@ -302,51 +369,59 @@ function processProductPartExceptions(sheet, tx) {
 /* ---------------- MAIN FUNCTION ---------------- */
 function updateDbFromExcel(filePath) {
     return __awaiter(this, void 0, void 0, function* () {
-        yield lookupCache_1.lookupCache.initialize();
         try {
+            let plantId;
+            if (filePath.endsWith("GD.xlsx")) {
+                plantId = 1;
+            }
+            else if (filePath.endsWith("TNGA.xlsx")) {
+                plantId = 2;
+            }
+            else {
+                throw new Error("Invalid filePath: must end with 'GD' or 'TNGA'");
+            }
+            yield lookupCache_1.lookupCache.initialize(plantId);
             const workbook = new exceljs_1.default.Workbook();
             yield workbook.xlsx.readFile(filePath);
             return yield client_1.db.transaction((tx) => __awaiter(this, void 0, void 0, function* () {
                 // Products
                 const productsSheet = workbook.getWorksheet("products");
                 if (productsSheet) {
-                    const res = yield processProducts(productsSheet, tx);
-                    if (!res.success)
-                        return res;
+                    yield processProducts(productsSheet, tx, plantId);
+                    // if (!res.success) return res;
                 }
                 // Stations
                 const stationsSheet = workbook.getWorksheet("stations");
                 if (stationsSheet) {
-                    const res = yield processStations(stationsSheet, tx);
-                    if (!res.success)
-                        return res;
+                    yield processStations(stationsSheet, tx, plantId);
+                    // if (!res.success) return res;
                 }
                 // Parts
                 const partsSheet = workbook.getWorksheet("parts");
                 if (partsSheet) {
-                    const res = yield processParts(partsSheet, tx);
-                    if (!res.success)
-                        return res;
+                    yield processParts(partsSheet, tx, plantId);
+                    // if (!res.success) return res;
                 }
                 // StationParts
                 const stationPartsSheet = workbook.getWorksheet("stationParts");
                 if (stationPartsSheet) {
-                    const res = yield processStationParts(stationPartsSheet, tx);
-                    if (!res.success)
-                        return res;
+                    yield processStationParts(stationPartsSheet, tx, plantId);
+                    // if (!res.success) return res;
                 }
                 // ProductPartExceptions
                 const productPartExceptionsSheet = workbook.getWorksheet("productPartExceptions");
                 if (productPartExceptionsSheet) {
-                    const res = yield processProductPartExceptions(productPartExceptionsSheet, tx);
-                    if (!res.success)
-                        return res;
+                    yield processProductPartExceptions(productPartExceptionsSheet, tx, plantId);
+                    // if (!res.success) return res;
                 }
                 return { success: true, message: "✅ Excel sync completed successfully" };
             }));
         }
         catch (err) {
-            return makeError("Unexpected error while processing Excel", err);
+            return {
+                success: false,
+                error: err instanceof Error ? err.message : "Unknown error",
+            };
         }
     });
 }

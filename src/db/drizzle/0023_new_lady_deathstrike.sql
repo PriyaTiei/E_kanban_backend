@@ -1,0 +1,1 @@
+ALTER TABLE "station_parts" ALTER COLUMN "process" SET DATA TYPE varchar(20);

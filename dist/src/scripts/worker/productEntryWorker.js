@@ -17,26 +17,43 @@ const node_fetch_1 = __importDefault(require("node-fetch"));
 const productEntryHelper_1 = require("../../lib/productEntryHelper");
 const settingsService_1 = require("../../lib/settingsService");
 const lookupCache_1 = require("../../lib/lookupCache");
+const productEntryHelperTNGA_1 = require("../../lib/productEntryHelperTNGA");
 dotenv_1.default.config();
 const API_URL = process.env.PRODUCT_ENTRY_API;
 const BEARER_TOKEN = process.env.AMRUTH_API_TOKEN;
 const POLL_INTERVAL_MS = 5000;
-const SETTING_KEY = "last_processed_timestamp";
-function formatDateFloorSeconds(dateString) {
-    const d = new Date(dateString);
-    // Floor seconds (remove milliseconds, don't round)
-    d.setMilliseconds(0);
-    // Format as YYYY-MM-DDTHH:mm:ss
-    return d.toISOString().slice(0, 19);
+const SETTING_KEY_GD = "last_processed_timestamp";
+const SETTING_KEY_TNGA = "last_processed_timestamp_tnga";
+function processEntries(sorted, plantId, settingKey, lookupCache) {
+    return __awaiter(this, void 0, void 0, function* () {
+        for (const entry of sorted) {
+            console.log(`⚙️ Processing ${entry.id_number} at ${entry.created_at} for plantId ${plantId}`);
+            plantId === 1 ?
+                yield (0, productEntryHelper_1.handleProductShift)(entry.id_number, plantId, lookupCache)
+                : yield (0, productEntryHelperTNGA_1.handleProductShiftTNGA)(entry.id_number, plantId, lookupCache);
+        }
+        // ✅ Update last processed timestamp only once, based on the last entry
+        if (sorted.length > 0) {
+            const lastEntry = sorted[sorted.length - 1];
+            yield (0, settingsService_1.setSetting)(settingKey, new Date(new Date(lastEntry.created_at).getTime() + 1000).toISOString());
+        }
+    });
 }
 function pollEntries() {
     return __awaiter(this, void 0, void 0, function* () {
-        const plantId = 1;
+        const gdPlantId = 1;
+        const tngaPlantId = 2;
         try {
             if (API_URL && BEARER_TOKEN) {
                 console.log("🔄 Polling for new product entries...");
-                const lastProcessed = yield (0, settingsService_1.getSetting)(SETTING_KEY);
-                const lastProcessedDate = lastProcessed ? new Date(lastProcessed) : new Date(0);
+                const lastProcessed = yield (0, settingsService_1.getSetting)(SETTING_KEY_GD);
+                const lastProcessedTNGA = yield (0, settingsService_1.getSetting)(SETTING_KEY_TNGA);
+                const lastProcessedDateGD = lastProcessed ? new Date(lastProcessed) : new Date(0);
+                const lastProcessedDateTNGA = lastProcessedTNGA ? new Date(lastProcessedTNGA) : new Date(0);
+                const lookupCacheGD = new lookupCache_1.LookupCache();
+                const lookupCacheTNGA = new lookupCache_1.LookupCache();
+                yield lookupCacheGD.initialize(gdPlantId);
+                yield lookupCacheTNGA.initialize(tngaPlantId);
                 const res = yield (0, node_fetch_1.default)(API_URL, {
                     method: 'GET',
                     headers: {
@@ -44,25 +61,25 @@ function pollEntries() {
                         'Content-Type': 'application/json',
                     },
                 });
+                console.log("API");
                 const json = yield res.json();
                 const entries = json.data;
                 if (!entries || !entries.length)
                     return;
-                // Sort oldest to newest
-                const sorted = entries
+                // Sort oldest to newest for GD
+                const sortedGD = entries
                     .slice(0, 10)
-                    .filter((e) => new Date(e.created_at) > lastProcessedDate
+                    .filter((e) => new Date(e.created_at) > lastProcessedDateGD
                     && ((Number(e.id_number) >= 300 && Number(e.id_number) < 400) || (Number(e.id_number) >= 400 && Number(e.id_number) < 500))).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-                console.log(`📦 Found ${sorted.length} new entries since last processed at ${lastProcessedDate.toLocaleString()}: `, sorted);
-                for (const entry of sorted) {
-                    console.log(`⚙️ Processing ${entry.id_number} at ${entry.created_at}`);
-                    yield (0, productEntryHelper_1.handleProductShift)(entry.id_number, plantId);
-                }
-                // ✅ Update last processed timestamp only once, based on the last entry
-                if (sorted.length > 0) {
-                    const lastEntry = sorted[sorted.length - 1];
-                    yield (0, settingsService_1.setSetting)(SETTING_KEY, new Date(new Date(lastEntry.created_at).getTime() + 1000).toISOString());
-                }
+                console.log(`📦 Found ${sortedGD.length} new entries for GD since last processed at ${lastProcessedDateGD.toLocaleString()}: `, sortedGD);
+                processEntries(sortedGD, gdPlantId, SETTING_KEY_GD, lookupCacheGD);
+                // Sort oldest to newest for TNGA
+                const sortedTNGA = entries
+                    .slice(0, 10)
+                    .filter((e) => new Date(e.created_at) > lastProcessedDateTNGA
+                    && ((Number(e.id_number) >= 100 && Number(e.id_number) < 200) || (Number(e.id_number) >= 200 && Number(e.id_number) < 300))).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                console.log(`📦 Found ${sortedTNGA.length} new entries for TNGA since last processed at ${lastProcessedDateTNGA.toLocaleString()}: `, sortedTNGA);
+                processEntries(sortedTNGA, tngaPlantId, SETTING_KEY_TNGA, lookupCacheTNGA);
             }
         }
         catch (err) {
@@ -72,7 +89,6 @@ function pollEntries() {
 }
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
-        yield lookupCache_1.lookupCache.initialize();
         setInterval(pollEntries, POLL_INTERVAL_MS);
         console.log("📡 Polling worker started...");
     });

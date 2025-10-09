@@ -15,9 +15,9 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const processFilter = req.query.process ? Number(req.query.process) : null;
+    const processFilter = req.query.process ? String(req.query.process) : null;
     const searchFilter = req.query.search ? String(req.query.search) : null;
-    console.log(`Search filter: ${searchFilter}`);
+    console.log(`processFilter: ${processFilter}, searchFilter: ${searchFilter}`);
     
     const plantId = user.plantId;
 
@@ -142,7 +142,7 @@ supplySheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const process = req.query?.process ? Number(req.query.process) : null;    
+    const process = req.query?.process ? String(req.query.process) : null;    
     const plantId = user.plantId;
     const baseWhereClause = and(
       eq(kanbanRequests.acknowledgedByLogistics, true),
@@ -226,7 +226,7 @@ supplySheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
     const whereClause = and(
           eq(kanbanRequests.acknowledgedByLogistics, true),
           eq(kanbanRequests.plantId, plantId),
-          process ? eq(stationParts.process, Number(process)) : sql`1=1`
+          process ? eq(stationParts.process, String(process)) : sql`1=1`
         );
 
     const kanbansToUpdate = await db

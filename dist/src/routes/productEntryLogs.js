@@ -18,6 +18,7 @@ const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
 const drizzle_orm_1 = require("drizzle-orm");
 const productEntryHelper_1 = require("../lib/productEntryHelper");
+const lookupCache_1 = require("../lib/lookupCache");
 exports.productEntryLogsRouter = express_1.default.Router();
 exports.productEntryLogsRouter.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -122,7 +123,7 @@ exports.productEntryLogsRouter.put('/refeed/:stationId', (req, res) => __awaiter
         if (!variant || isNaN(stationId)) {
             return res.status(400).json({ error: "variant and valid stationId are required" });
         }
-        yield (0, productEntryHelper_1.handleProductShift)(variant, plantId, stationId);
+        yield (0, productEntryHelper_1.handleProductShift)(variant, plantId, lookupCache_1.lookupCache, stationId);
         res.json({ message: "Product re-fed successfully at the specified station." });
     }
     catch (error) {

@@ -62,19 +62,19 @@ function start() {
         app.get("/", (req, res) => __awaiter(this, void 0, void 0, function* () {
             res.redirect("/station-parts");
         }));
-        // Initialize cache
-        yield lookupCache_1.lookupCache.initialize();
         // Public routes
         app.use('/supply', amruthUpdate_1.amruthUpdateRouter);
         // app.use("/sensor-trigger", sensorTriggerRouter);
         app.use("/auth", userAuth_1.userAuthRouter); // Allow login/logout/session check without auth
         // Auth middleware for all other routes
-        app.use((req, res, next) => {
+        app.use((req, res, next) => __awaiter(this, void 0, void 0, function* () {
             if (req.session.user) {
+                // Initialize cache
+                yield lookupCache_1.lookupCache.initialize(req.session.user.plantId);
                 return next();
             }
             res.status(401).json({ error: "Not authenticated" });
-        });
+        }));
         // Protected routes
         app.use("/preparation-sheet", preparationSheet_1.preparationSheetRouter);
         app.use("/supply-sheet", supplySheet_1.supplySheetRouter);

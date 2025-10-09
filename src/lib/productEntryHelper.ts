@@ -1,20 +1,29 @@
 import { db } from "../db/client";
 import { productEntryLogs, kanbanRequests, stationParts, products } from "../db/schema";
 import { eq, and, or, desc, gte, sql } from "drizzle-orm";
-import { lookupCache } from "./lookupCache";
+import { LookupCache } from "./lookupCache";
 
-export async function insertNewVariant(variant: string) {
+export async function insertNewVariant(variant: string, plantId: number) {
   return db.insert(products)
     .values({
-      variant
+      variant,
+      plantId
     }).returning({ id: products.id });
 }
 
-export async function handleProductShift(variant: string, plantId:number, refeedStationId?: number) {
+export async function handleProductShift(variant: string, plantId:number, lookupCache: LookupCache, refeedStationId?: number) {
+  console.log(`product ${Number(variant)} as entered plant ${plantId}: GD`);
+  
+  if (Number(variant) < 300 || Number(variant) >= 500) {
+    console.error(`Invalid variant for GD plant: ${variant}`);
+    return;
+  }
+  // const lookupCache = new LookupCache();
+  // await lookupCache.initialize(plantId);
   let variantId = lookupCache.getProductId(String(variant));
 
   if (variantId === null) {
-    const newVariant = await insertNewVariant(variant)
+    const newVariant = await insertNewVariant(variant, plantId)
     variantId = newVariant[0].id
   }
   // const gdPlantName = "GD";
@@ -64,7 +73,7 @@ export async function handleProductShift(variant: string, plantId:number, refeed
       timestamp: new Date(),
     });
 
-    const updatedLogs = await tx.select().from(productEntryLogs);
+    const updatedLogs = await tx.select().from(productEntryLogs).where(eq(productEntryLogs.plantId, plantId));
 
     for (const log of updatedLogs) {
       const parts = await tx
@@ -90,6 +99,9 @@ export async function handleProductShift(variant: string, plantId:number, refeed
           )
         );
 
+      const stationName = lookupCache.getStationName(log.stationId);
+      console.log(`processing station parts for station ${stationName}`);
+
       for (const part of parts) {
         let updatedQuantity: number;
         let remainder: number;
@@ -112,18 +124,22 @@ export async function handleProductShift(variant: string, plantId:number, refeed
           //   console.log("stationName:", stationName);
           //   continue;
           // }
-      
+
           await tx.insert(kanbanRequests).values({
             plantId: plantId,
             stationId: log.stationId,
             partId: part.partId,
             productId: log.productId,
           });
+
+          const productVariant = lookupCache.getProductVariant(log.productId);
+          console.log(`Raising a kanban request for plant ${plantId} at ${stationName} for product ${productVariant}`);
+        
         } else {
           updatedQuantity = part.currentQuantity - part.consumptionPerProduct;
-
+          
           await tx
-            .update(stationParts)
+          .update(stationParts)
             .set({
               currentQuantity: updatedQuantity,
               updatedAt: new Date(),
