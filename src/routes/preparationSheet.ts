@@ -61,7 +61,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       .selectDistinct({ process: stationParts.process })
       .from(kanbanRequests)
       .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+      .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
       .where(baseWhereClause)
       .orderBy(asc(stationParts.process));
 
@@ -84,8 +84,8 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .from(kanbanRequests)
         .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
-        .leftJoin(products, eq(kanbanRequests.productId, products.id))
+        .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId),eq(kanbanRequests.partId, stationParts.partId)))
+        // .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(baseWhereClause)
         .orderBy(orderByClause)
         .limit(limit)
@@ -95,8 +95,8 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .select({ total: count() })
         .from(kanbanRequests)
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
-        .where(baseWhereClause);
+        .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
+        .where(baseWhereClause)
 
         const totalPages = Math.ceil((total[0]?.total ?? 0) / limit);
 
@@ -121,9 +121,9 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .innerJoin(kanbanRequests, eq(frozenKanbans.kanbanId, kanbanRequests.id))
         .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
-        .leftJoin(products, eq(kanbanRequests.productId, products.id))
-        .where(and(eq(frozenKanbans.process, processFilter), baseWhereClause))
+        .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
+        // .leftJoin(products, eq(kanbanRequests.productId, products.id))
+        .where(and(eq(frozenKanbans.process, processFilter), eq(frozenKanbans.process, stationParts.process), baseWhereClause))
         .orderBy(orderByClause)
         .limit(limit)
         .offset(offset);
@@ -133,8 +133,8 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .from(frozenKanbans)
         .innerJoin(kanbanRequests, eq(frozenKanbans.kanbanId, kanbanRequests.id))
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
-        .where(and(eq(frozenKanbans.process, processFilter), baseWhereClause));
+        .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
+        .where(and(eq(frozenKanbans.process, processFilter), eq(frozenKanbans.process, stationParts.process), baseWhereClause))
 
       const totalPages = Math.ceil((totalFrozen[0]?.total ?? 0) / limit);
 
@@ -146,8 +146,8 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .from(kanbanRequests)
         .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
-        .leftJoin(products, eq(kanbanRequests.productId, products.id))
+        .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
+        // .leftJoin(products, eq(kanbanRequests.productId, products.id))
         .where(and(baseWhereClause, eq(stationParts.process, processFilter)))
         .orderBy(orderByClause)
         .limit(limit)
@@ -157,8 +157,8 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .select({ total: count() })
         .from(kanbanRequests)
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
-        .where(and(baseWhereClause, eq(stationParts.process, processFilter)));
+        .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
+        .where(and(baseWhereClause, eq(stationParts.process, processFilter)))
 
       const totalPages = Math.ceil((totalUnfrozen[0]?.total ?? 0) / limit);
 
@@ -191,7 +191,7 @@ preparationSheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
     const result = await db
       .select({ total: count() })
       .from(kanbanRequests)
-      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+      .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
       .where(whereClause);
 
     // result is an array with one object: [{ total: number }]
@@ -268,7 +268,7 @@ preparationSheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
     const kanbansToUpdate = await db
     .select({ id: kanbanRequests.id })
     .from(kanbanRequests)
-    .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+    .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
     .where(whereClause)
     .orderBy(asc(kanbanRequests.requestedAt));
 
@@ -338,7 +338,7 @@ preparationSheetRouter.post("/kanbans/freeze", async (req, res): Promise<any> =>
     const kanbansToFreeze = await db
       .select({ id: kanbanRequests.id })
       .from(kanbanRequests)
-      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+      .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
       .where(whereClause)
       .orderBy(asc(kanbanRequests.requestedAt));
 
@@ -454,12 +454,9 @@ preparationSheetRouter.post("/kanbans/create", async (req, res): Promise<any> =>
         plantId: plantId,
         stationId: entry.stationId!,
         partId: entry.partId!,
-        // productId: entry.productId,
-        // acknowledgedByLogistics: entry.acknowledgedByLogistics || null,
-        // acknowledgedAt: entry.acknowledgedAt || null,
-        // fulfilled: entry.fulfilled || null,
-        // fulfilledAt: entry.fulfilledAt || null,
       }))).returning();
+
+    console.log(`Created kanban: ${JSON.stringify(newKanban)}`);
 
     return res.status(201).json({ message: "Kanban created successfully", kanban: newKanban[0] });
   } catch (error) {

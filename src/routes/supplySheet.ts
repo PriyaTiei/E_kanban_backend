@@ -47,7 +47,7 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       .selectDistinct({ process: stationParts.process })
       .from(kanbanRequests)
       .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+      .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
       .where(whereClause)
       .orderBy(asc(stationParts.process));
 
@@ -79,8 +79,8 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       .from(kanbanRequests)
       .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
       .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
-      .leftJoin(products, eq(kanbanRequests.productId, products.id))
+      .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
+      // .leftJoin(products, eq(kanbanRequests.productId, products.id))
       .where(whereClause)
       .orderBy(orderByClause)
       .limit(limit)
@@ -90,7 +90,7 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .select({ total: count() })
         .from(kanbanRequests)
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+        .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
         .where(whereClause);
 
       const totalPages = Math.ceil((total[0]?.total ?? 0) / limit);
@@ -112,8 +112,8 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       .from(kanbanRequests)
       .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
       .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
-      .leftJoin(products, eq(kanbanRequests.productId, products.id))
+      .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
+      // .leftJoin(products, eq(kanbanRequests.productId, products.id))
       .where(and(whereClause, eq(stationParts.process, processFilter)))
       .orderBy(orderByClause)
       .limit(limit)
@@ -123,7 +123,7 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .select({ total: count() })
         .from(kanbanRequests)
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-        .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+        .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
         .where(and(whereClause, eq(stationParts.process, processFilter)));
 
       const totalPages = Math.ceil((total[0]?.total ?? 0) / limit);
@@ -158,7 +158,7 @@ supplySheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
     const result = await db
       .select({ total: count() })
       .from(kanbanRequests)
-      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+      .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
       .where(whereClause);
 
     return res.status(200).json({ total: result[0]?.total ?? 0 });
@@ -232,7 +232,7 @@ supplySheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
     const kanbansToUpdate = await db
     .select({ id: kanbanRequests.id })
     .from(kanbanRequests)
-    .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
+    .leftJoin(stationParts, and(eq(kanbanRequests.stationId, stationParts.stationId), eq(kanbanRequests.partId, stationParts.partId)))
     .where(whereClause)
     .orderBy(asc(kanbanRequests.requestedAt));
 

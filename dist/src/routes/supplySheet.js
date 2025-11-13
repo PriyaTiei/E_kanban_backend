@@ -44,7 +44,7 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
             .selectDistinct({ process: schema_1.stationParts.process })
             .from(schema_1.kanbanRequests)
             .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
+            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
             .where(whereClause)
             .orderBy((0, drizzle_orm_1.asc)(schema_1.stationParts.process));
         const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
@@ -73,8 +73,8 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
                 .from(schema_1.kanbanRequests)
                 .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
                 .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
-                .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
+                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
+                // .leftJoin(products, eq(kanbanRequests.productId, products.id))
                 .where(whereClause)
                 .orderBy(orderByClause)
                 .limit(limit)
@@ -83,7 +83,7 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
                 .select({ total: (0, drizzle_orm_1.count)() })
                 .from(schema_1.kanbanRequests)
                 .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
+                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
                 .where(whereClause);
             const totalPages = Math.ceil(((_b = (_a = total[0]) === null || _a === void 0 ? void 0 : _a.total) !== null && _b !== void 0 ? _b : 0) / limit);
             return res.status(200).json({ kanbans, processes: uniqueProcesses, totalPages });
@@ -102,8 +102,8 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
                 .from(schema_1.kanbanRequests)
                 .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
                 .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
-                .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
+                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
+                // .leftJoin(products, eq(kanbanRequests.productId, products.id))
                 .where((0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.eq)(schema_1.stationParts.process, processFilter)))
                 .orderBy(orderByClause)
                 .limit(limit)
@@ -112,7 +112,7 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
                 .select({ total: (0, drizzle_orm_1.count)() })
                 .from(schema_1.kanbanRequests)
                 .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
+                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
                 .where((0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.eq)(schema_1.stationParts.process, processFilter)));
             const totalPages = Math.ceil(((_d = (_c = total[0]) === null || _c === void 0 ? void 0 : _c.total) !== null && _d !== void 0 ? _d : 0) / limit);
             return res.status(200).json({ kanbans, processes: uniqueProcesses, totalPages });
@@ -139,7 +139,7 @@ exports.supplySheetRouter.get("/kanbans/count", (req, res) => __awaiter(void 0, 
         const result = yield client_1.db
             .select({ total: (0, drizzle_orm_1.count)() })
             .from(schema_1.kanbanRequests)
-            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
+            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
             .where(whereClause);
         return res.status(200).json({ total: (_c = (_b = result[0]) === null || _b === void 0 ? void 0 : _b.total) !== null && _c !== void 0 ? _c : 0 });
     }
@@ -199,7 +199,7 @@ exports.supplySheetRouter.put("/kanban/all", (req, res) => __awaiter(void 0, voi
         const kanbansToUpdate = yield client_1.db
             .select({ id: schema_1.kanbanRequests.id })
             .from(schema_1.kanbanRequests)
-            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
+            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
             .where(whereClause)
             .orderBy((0, drizzle_orm_1.asc)(schema_1.kanbanRequests.requestedAt));
         if (kanbansToUpdate.length === 0) {
