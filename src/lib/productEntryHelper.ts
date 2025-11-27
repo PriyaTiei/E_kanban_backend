@@ -12,7 +12,7 @@ export async function insertNewVariant(variant: string, plantId: number) {
 }
 
 export async function handleProductShift(variant: string, plantId:number, lookupCache: LookupCache, refeedStationId?: number) {
-  console.log(`product ${Number(variant)} as entered plant ${plantId}: GD`);
+  // console.log(`product ${Number(variant)} as entered plant ${plantId}: GD`);
   
   if (Number(variant) < 300 || Number(variant) >= 500) {
     console.error(`Invalid variant for GD plant: ${variant}`);
@@ -100,7 +100,7 @@ export async function handleProductShift(variant: string, plantId:number, lookup
         );
 
       const stationName = lookupCache.getStationName(log.stationId);
-      console.log(`processing station parts for station ${stationName}`);
+      // console.log(`processing station parts for station ${stationName}`);
 
       for (const part of parts) {
         let updatedQuantity: number;
@@ -133,7 +133,7 @@ export async function handleProductShift(variant: string, plantId:number, lookup
           });
 
           const productVariant = lookupCache.getProductVariant(log.productId);
-          console.log(`Raising a kanban request for plant ${plantId} at ${stationName} for product ${productVariant}`);
+          // console.log(`Raising a kanban request for variant ${variant} at ${stationName} of plant ${plantId} for product ${productVariant}`);
         
         } else {
           updatedQuantity = part.currentQuantity - part.consumptionPerProduct;

@@ -25,7 +25,7 @@ function insertNewVariant(variant, plantId) {
 }
 function handleProductShift(variant, plantId, lookupCache, refeedStationId) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log(`product ${Number(variant)} as entered plant ${plantId}: GD`);
+        // console.log(`product ${Number(variant)} as entered plant ${plantId}: GD`);
         if (Number(variant) < 300 || Number(variant) >= 500) {
             console.error(`Invalid variant for GD plant: ${variant}`);
             return;
@@ -94,7 +94,7 @@ function handleProductShift(variant, plantId, lookupCache, refeedStationId) {
                 AND product_part_exceptions.part_id = station_parts.part_id
               )`)));
                 const stationName = lookupCache.getStationName(log.stationId);
-                console.log(`processing station parts for station ${stationName}`);
+                // console.log(`processing station parts for station ${stationName}`);
                 for (const part of parts) {
                     let updatedQuantity;
                     let remainder;
@@ -121,7 +121,7 @@ function handleProductShift(variant, plantId, lookupCache, refeedStationId) {
                             productId: log.productId,
                         });
                         const productVariant = lookupCache.getProductVariant(log.productId);
-                        console.log(`Raising a kanban request for plant ${plantId} at ${stationName} for product ${productVariant}`);
+                        // console.log(`Raising a kanban request for variant ${variant} at ${stationName} of plant ${plantId} for product ${productVariant}`);
                     }
                     else {
                         updatedQuantity = part.currentQuantity - part.consumptionPerProduct;
