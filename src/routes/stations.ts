@@ -14,7 +14,7 @@ stationsRouter.get('/', async (req, res): Promise<any> => {
     const plantId = user.plantId;
     const whereClause = eq(stations.plantId, plantId);
 
-    const stationDetails = await db.select().from(stations).where(whereClause).orderBy(stations.id);
+    const stationDetails = await db.select().from(stations).where(whereClause).orderBy(stations.sequenceNo);
     
     res.json(stationDetails);
   } catch (error) {

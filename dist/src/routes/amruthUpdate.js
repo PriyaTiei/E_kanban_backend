@@ -18,10 +18,16 @@ const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
 const express_1 = __importDefault(require("express"));
 exports.amruthUpdateRouter = express_1.default.Router();
-exports.amruthUpdateRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.amruthUpdateRouter.post("/kanbans", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        const previouslyAcknowledgedKanbans = req.body;
+        console.log("previouslyAcknowledgedKanbans: ", previouslyAcknowledgedKanbans);
         const whereClause = (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.fulfilled, false));
+        if (previouslyAcknowledgedKanbans && previouslyAcknowledgedKanbans.length > 0) {
+            (0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.not)((0, drizzle_orm_1.inArray)(schema_1.kanbanRequests.id, previouslyAcknowledgedKanbans)));
+        }
         const orderByClause = (0, drizzle_orm_1.sql) `
+      ${schema_1.kanbanRequests.id},
       CASE
         WHEN ${schema_1.stationParts.supplyLocation} LIKE 'SA-%' THEN 1
         WHEN ${schema_1.stationParts.supplyLocation} LIKE 'MK1-%' THEN 2
@@ -32,10 +38,11 @@ exports.amruthUpdateRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 
       ${schema_1.stationParts.supplyLocation},
       ${schema_1.kanbanRequests.acknowledgedAt}
     `;
+        const stationPartsJoinCondition = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationPartsId, schema_1.stationParts.id);
         const kanbans = yield client_1.db
-            .select({
-            id: (0, drizzle_orm_1.sql) `ROW_NUMBER() OVER (ORDER BY ${orderByClause})`.as('id'),
-            sequenceNo: (0, drizzle_orm_1.sql) `ROW_NUMBER() OVER (ORDER BY ${orderByClause})`.as('sequenceNo'),
+            .selectDistinctOn([schema_1.kanbanRequests.id], {
+            id: schema_1.kanbanRequests.id,
+            sequenceNo: schema_1.kanbanRequests.id,
             process: schema_1.stationParts.process,
             plantId: schema_1.plants.plantId,
             partId: schema_1.parts.partId,
@@ -43,14 +50,11 @@ exports.amruthUpdateRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 
             partNumber: schema_1.parts.partNumber,
             boxQty: schema_1.stationParts.binQuantity,
             supplyLocation: schema_1.stationParts.supplyLocation,
-            // sequenceNo: kanbanRequests.id,
             acknowledgedAt: schema_1.kanbanRequests.acknowledgedAt,
         })
             .from(schema_1.kanbanRequests)
-            .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
-            .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId))
-            .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
+            .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
+            .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.stationParts.partId, schema_1.parts.id))
             .leftJoin(schema_1.plants, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, schema_1.plants.id))
             .where(whereClause)
             .orderBy(orderByClause);
@@ -72,7 +76,7 @@ exports.amruthUpdateRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 
             }
             return kanban;
         });
-        console.log("Count of kanbans for part id 2160: ", ISTDateFormatedResult.filter(k => k.partId === '2160').length);
+        console.log("Count of kanbans: ", ISTDateFormatedResult.length);
         return res.status(200).json(ISTDateFormatedResult);
     }
     catch (err) {

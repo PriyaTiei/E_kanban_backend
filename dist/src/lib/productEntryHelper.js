@@ -23,23 +23,35 @@ function insertNewVariant(variant, plantId) {
         }).returning({ id: schema_1.products.id });
     });
 }
-function handleProductShift(variant, plantId, lookupCache, refeedStationId) {
+function handleProductShift(variant, plantId, refeedStationId) {
     return __awaiter(this, void 0, void 0, function* () {
         // console.log(`product ${Number(variant)} as entered plant ${plantId}: GD`);
         if (Number(variant) < 300 || Number(variant) >= 500) {
             console.error(`Invalid variant for GD plant: ${variant}`);
             return;
         }
-        // const lookupCache = new LookupCache();
-        // await lookupCache.initialize(plantId);
-        let variantId = lookupCache.getProductId(String(variant));
-        if (variantId === null) {
+        // Get variant ID from database
+        let variantRecord = yield client_1.db
+            .select({ id: schema_1.products.id })
+            .from(schema_1.products)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.products.variant, String(variant)), (0, drizzle_orm_1.eq)(schema_1.products.plantId, plantId)))
+            .limit(1);
+        let variantId;
+        if (variantRecord.length === 0) {
             const newVariant = yield insertNewVariant(variant, plantId);
             variantId = newVariant[0].id;
         }
-        // const gdPlantName = "GD";
-        // const plantId = lookupCache.getPlantId(gdPlantName);
-        const stationIds = lookupCache.getStationSequence();
+        else {
+            variantId = variantRecord[0].id;
+        }
+        // Get station sequence from database
+        const stationSequence = yield client_1.db
+            .select({ id: schema_1.stations.id })
+            .from(schema_1.stations)
+            .where((0, drizzle_orm_1.eq)(schema_1.stations.plantId, plantId))
+            .orderBy(schema_1.stations.sequenceNo);
+        const stationIds = stationSequence.map(s => s.id);
+        console.log("total stations in the cache: ", stationIds.length);
         // If refeedStationId is provided, use it; otherwise, use the first station
         const startStationId = refeedStationId !== null && refeedStationId !== void 0 ? refeedStationId : stationIds[0];
         const startIndex = stationIds.indexOf(startStationId);
@@ -82,6 +94,8 @@ function handleProductShift(variant, plantId, lookupCache, refeedStationId) {
                 const parts = yield tx
                     .select({
                     id: schema_1.stationParts.id,
+                    process: schema_1.stationParts.process,
+                    supplyLocation: schema_1.stationParts.supplyLocation,
                     binQuantity: schema_1.stationParts.binQuantity,
                     currentQuantity: schema_1.stationParts.currentQuantity,
                     consumptionPerProduct: schema_1.stationParts.consumptionPerProduct,
@@ -93,8 +107,6 @@ function handleProductShift(variant, plantId, lookupCache, refeedStationId) {
                 WHERE product_part_exceptions.product_id = ${log.productId}
                 AND product_part_exceptions.part_id = station_parts.part_id
               )`)));
-                const stationName = lookupCache.getStationName(log.stationId);
-                // console.log(`processing station parts for station ${stationName}`);
                 for (const part of parts) {
                     let updatedQuantity;
                     let remainder;
@@ -108,20 +120,15 @@ function handleProductShift(variant, plantId, lookupCache, refeedStationId) {
                             updatedAt: new Date(),
                         })
                             .where((0, drizzle_orm_1.eq)(schema_1.stationParts.id, part.id));
-                        // TODO: Remove this condition after bin matching.
-                        // const stationName = lookupCache.getStationName(log.stationId);
-                        // if(!stationName.startsWith("BS-")){
-                        //   console.log("stationName:", stationName);
-                        //   continue;
-                        // }
                         yield tx.insert(schema_1.kanbanRequests).values({
                             plantId: plantId,
-                            stationId: log.stationId,
-                            partId: part.partId,
-                            productId: log.productId,
+                            stationPartsId: part.id,
+                            // stationId: log.stationId,
+                            // process: part.process,
+                            // supplyLocation: part.supplyLocation,
+                            // partId: part.partId,
+                            // productId: log.productId,
                         });
-                        const productVariant = lookupCache.getProductVariant(log.productId);
-                        // console.log(`Raising a kanban request for variant ${variant} at ${stationName} of plant ${plantId} for product ${productVariant}`);
                     }
                     else {
                         updatedQuantity = part.currentQuantity - part.consumptionPerProduct;

@@ -12,13 +12,13 @@ export async function insertNewVariant(variant: string, plantId: number) {
     }).returning({ id: products.id });
 }
 
-export async function handleProductShiftTNGA(variant: string, plantId:number, lookupCache: LookupCache, refeedStationId?: number) {
+export async function handleProductShiftTNGA(variant: string, plantId:number, refeedStationId?: number) {
   if (Number(variant) < 100 || Number(variant) >= 300) {
     console.error(`Invalid variant for TNGA plant: ${variant}`);
-    return
+    return;
   }
-  // const lookupCache = new LookupCache();
-  // await lookupCache.initialize(plantId);
+  const lookupCache = new LookupCache();
+  await lookupCache.initialize(plantId);
   let variantId = lookupCache.getProductId(String(variant));
 
   if (variantId === null) {

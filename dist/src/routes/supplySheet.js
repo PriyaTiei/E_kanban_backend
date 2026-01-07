@@ -21,7 +21,7 @@ const kanbanHelpers_1 = require("../lib/kanbanHelpers");
 exports.supplySheetRouter = express_1.default.Router();
 // *****Joining with stationParts based on partId might incorrect data since partId in stationParts is not unique*****
 exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d;
+    var _a, _b, _c;
     try {
         const user = req.session.user;
         if (!user) {
@@ -36,6 +36,7 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
         const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
         const offset = (page - 1) * limit;
         let whereClause = (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.fulfilled, false), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId));
+        const stationPartsJoinCondition = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationPartsId, schema_1.stationParts.id);
         if (searchFilter) {
             whereClause = (0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.or)((0, drizzle_orm_1.ilike)(schema_1.parts.partId, `%${searchFilter}%`), (0, drizzle_orm_1.ilike)(schema_1.stationParts.prepLocation, `%${searchFilter}%`), (0, drizzle_orm_1.ilike)(schema_1.stationParts.supplyLocation, `%${searchFilter}%`)));
         }
@@ -43,11 +44,20 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
         const processes = yield client_1.db
             .selectDistinct({ process: schema_1.stationParts.process })
             .from(schema_1.kanbanRequests)
-            .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
+            .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
+            .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.stationParts.partId, schema_1.parts.id))
             .where(whereClause)
             .orderBy((0, drizzle_orm_1.asc)(schema_1.stationParts.process));
         const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
+        const rankKanbans = yield client_1.db
+            .select({ total: (0, drizzle_orm_1.count)() })
+            .from(schema_1.kanbanRequests)
+            .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
+            .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
+            .where((0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.isNull)(schema_1.stationParts.id)));
+        if (((_a = rankKanbans[0]) === null || _a === void 0 ? void 0 : _a.total) > 0) {
+            uniqueProcesses.push('rank parts');
+        }
         const orderByClause = (0, drizzle_orm_1.sql) `
       CASE
         WHEN ${schema_1.stationParts.supplyLocation} LIKE 'SA-%' THEN 1
@@ -72,21 +82,44 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
             })
                 .from(schema_1.kanbanRequests)
                 .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
-                .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
-                // .leftJoin(products, eq(kanbanRequests.productId, products.id))
+                .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
+                .leftJoin(schema_1.parts, (0, drizzle_orm_1.sql) `${schema_1.parts.id} = COALESCE(${schema_1.stationParts.partId}, ${schema_1.kanbanRequests.partId})`)
                 .where(whereClause)
                 .orderBy(orderByClause)
                 .limit(limit)
                 .offset(offset);
-            const total = yield client_1.db
+            const total = (_b = (yield client_1.db
                 .select({ total: (0, drizzle_orm_1.count)() })
                 .from(schema_1.kanbanRequests)
-                .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
-                .where(whereClause);
-            const totalPages = Math.ceil(((_b = (_a = total[0]) === null || _a === void 0 ? void 0 : _a.total) !== null && _b !== void 0 ? _b : 0) / limit);
-            return res.status(200).json({ kanbans, processes: uniqueProcesses, totalPages });
+                .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
+                .leftJoin(schema_1.parts, (0, drizzle_orm_1.sql) `${schema_1.parts.id} = COALESCE(${schema_1.stationParts.partId}, ${schema_1.kanbanRequests.partId})`)
+                .where(whereClause))[0]) === null || _b === void 0 ? void 0 : _b.total;
+            const totalPages = Math.ceil((total !== null && total !== void 0 ? total : 0) / limit);
+            return res.status(200).json({ kanbans, processes: uniqueProcesses, total, totalPages });
+        }
+        else if (processFilter === 'rank parts') {
+            // Special case for 'rank parts' process filter
+            const kanbans = yield client_1.db
+                .select({
+                id: schema_1.kanbanRequests.id,
+                process: schema_1.stationParts.process,
+                partId: schema_1.kanbanRequests.partId,
+                partIdNo: schema_1.parts.partId,
+                partName: schema_1.parts.name,
+                supplyLocation: schema_1.stationParts.supplyLocation,
+                acknowledgedAt: schema_1.kanbanRequests.acknowledgedAt,
+            })
+                .from(schema_1.kanbanRequests)
+                .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
+                .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.parts.id, schema_1.kanbanRequests.partId))
+                .where((0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.isNull)(schema_1.stationParts.id)))
+                .orderBy(orderByClause)
+                .limit(limit)
+                .offset(offset);
+            const total = rankKanbans[0].total;
+            const totalPages = Math.ceil((total !== null && total !== void 0 ? total : 0) / limit);
+            console.log(JSON.stringify(kanbans, null, 2));
+            return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: false, total, totalPages });
         }
         else {
             const kanbans = yield client_1.db
@@ -101,21 +134,20 @@ exports.supplySheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0
             })
                 .from(schema_1.kanbanRequests)
                 .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stations.id))
-                .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
-                // .leftJoin(products, eq(kanbanRequests.productId, products.id))
+                .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
+                .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.stationParts.partId, schema_1.parts.id))
                 .where((0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.eq)(schema_1.stationParts.process, processFilter)))
                 .orderBy(orderByClause)
                 .limit(limit)
                 .offset(offset);
-            const total = yield client_1.db
+            const total = (_c = (yield client_1.db
                 .select({ total: (0, drizzle_orm_1.count)() })
                 .from(schema_1.kanbanRequests)
-                .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
-                .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
-                .where((0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.eq)(schema_1.stationParts.process, processFilter)));
-            const totalPages = Math.ceil(((_d = (_c = total[0]) === null || _c === void 0 ? void 0 : _c.total) !== null && _d !== void 0 ? _d : 0) / limit);
-            return res.status(200).json({ kanbans, processes: uniqueProcesses, totalPages });
+                .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
+                .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.stationParts.partId, schema_1.parts.id))
+                .where((0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.eq)(schema_1.stationParts.process, processFilter))))[0]) === null || _c === void 0 ? void 0 : _c.total;
+            const totalPages = Math.ceil((total !== null && total !== void 0 ? total : 0) / limit);
+            return res.status(200).json({ kanbans, processes: uniqueProcesses, total, totalPages });
         }
     }
     catch (err) {
@@ -136,10 +168,11 @@ exports.supplySheetRouter.get("/kanbans/count", (req, res) => __awaiter(void 0, 
         const processWhereClause = process ? (0, drizzle_orm_1.eq)(schema_1.stationParts.process, process) : (0, drizzle_orm_1.sql) `1=1`;
         const plantWhereClause = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId);
         const whereClause = (0, drizzle_orm_1.and)(baseWhereClause, processWhereClause, plantWhereClause);
+        const stationPartsJoinCondition = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationPartsId, schema_1.stationParts.id);
         const result = yield client_1.db
             .select({ total: (0, drizzle_orm_1.count)() })
             .from(schema_1.kanbanRequests)
-            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
+            .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
             .where(whereClause);
         return res.status(200).json({ total: (_c = (_b = result[0]) === null || _b === void 0 ? void 0 : _b.total) !== null && _c !== void 0 ? _c : 0 });
     }
@@ -196,10 +229,11 @@ exports.supplySheetRouter.put("/kanban/all", (req, res) => __awaiter(void 0, voi
         const fulfilled = true;
         const fulfilledAt = new Date();
         const whereClause = (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId), process ? (0, drizzle_orm_1.eq)(schema_1.stationParts.process, String(process)) : (0, drizzle_orm_1.sql) `1=1`);
+        const stationPartsJoinCondition = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationPartsId, schema_1.stationParts.id);
         const kanbansToUpdate = yield client_1.db
             .select({ id: schema_1.kanbanRequests.id })
             .from(schema_1.kanbanRequests)
-            .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationId, schema_1.stationParts.stationId), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.stationParts.partId)))
+            .leftJoin(schema_1.stationParts, stationPartsJoinCondition)
             .where(whereClause)
             .orderBy((0, drizzle_orm_1.asc)(schema_1.kanbanRequests.requestedAt));
         if (kanbansToUpdate.length === 0) {

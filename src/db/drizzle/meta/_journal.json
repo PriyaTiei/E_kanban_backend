@@ -176,6 +176,34 @@
       "when": 1759215387171,
       "tag": "0024_shocking_revanche",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1764320796805,
+      "tag": "0025_blushing_bruce_banner",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1764566409409,
+      "tag": "0026_friendly_invisible_woman",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1766112210198,
+      "tag": "0027_large_firelord",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1766122532523,
+      "tag": "0028_lying_hairball",
+      "breakpoints": true
     }
   ]
 }

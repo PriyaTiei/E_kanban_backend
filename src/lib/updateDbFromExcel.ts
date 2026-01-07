@@ -8,9 +8,8 @@ import {
   productPartExceptions,
 } from "../db/schema";
 import { eq, and, like } from "drizzle-orm";
-import { lookupCache, LookupCache } from "./lookupCache";
+import { lookupCache } from "./lookupCache";
 import { insertNewVariant } from "./productEntryHelper";
-import { PgTransaction } from "drizzle-orm/pg-core";
 import { txType } from "./types";
 
 type Result = { success: true; message?: string } | { success: false; error: string };
@@ -96,13 +95,12 @@ async function processProducts(sheet: ExcelJS.Worksheet, tx: txType, plantId: nu
 /* ---------------- STATIONS ---------------- */
 async function processStations(sheet: ExcelJS.Worksheet, tx: txType, plantId: number): Promise<Result> {
   try {
-    const dbNames = new Set((
-      await tx.select({ name: stations.name })
+    await tx.update(stations).set({sequenceNo: null}).where(eq(stations.plantId, plantId));
+
+    const dbEntries = (
+      await tx.select({ name: stations.name, sequenceNo: stations.sequenceNo })
         .from(stations)
         .where(eq(stations.plantId, plantId))
-      ).map(
-        (row) => row.name
-      )
     );
     const excelNames = new Set<string>();
     let headerMap: HeaderMap = {};
@@ -114,18 +112,33 @@ async function processStations(sheet: ExcelJS.Worksheet, tx: txType, plantId: nu
       }
 
       const name = preprocessCellValue(row.getCell(headerMap["name"]).value);
+      const sequenceNo = Number(preprocessCellValue(row.getCell(headerMap["sequenceNo"]).value));
       // const plant = row.getCell(headerMap["plant"]).value?.toString().trim();
 
       if (!name) continue;
+      if (!sequenceNo) makeError(`Missing sequenceNo for station '${name}' (row ${row.number})`);
+      
       excelNames.add(name);
 
-      if (!dbNames.has(name)) {
+      if (!dbEntries.map(entry => entry.name).includes(name)) {
         try {
           // const plantId = lookupCache.getPlantId(plant);
-          await tx.insert(stations).values({ name, plantId });
+          await tx.insert(stations).values({ name, sequenceNo, plantId });
         } catch (err) {
           return makeError(
             `Failed to insert station '${name}' (row ${row.number})`,
+            err
+          );
+        }
+      } else {
+        // if (dbEntries.some(entry => entry.name === name && entry.sequenceNo !== sequenceNo)) {
+        try {
+          await tx.update(stations)
+            .set({ sequenceNo })
+            .where(and(eq(stations.name, name), eq(stations.plantId, plantId)));
+        } catch (err) {
+          return makeError(
+            `Failed to update sequence no. for station '${name}' (row ${row.number})`,
             err
           );
         }
@@ -133,12 +146,12 @@ async function processStations(sheet: ExcelJS.Worksheet, tx: txType, plantId: nu
     }
 
     // Delete stations not in Excel
-    for (const dbName of dbNames) {
-      if (!excelNames.has(dbName)) {
+    for (const dbName of dbEntries) {
+      if (!excelNames.has(dbName.name)) {
         try {
-          await tx.delete(stations).where(eq(stations.name, dbName));
+          await tx.delete(stations).where(eq(stations.name, dbName.name));
         } catch (err) {
-          return makeError(`Failed to delete station '${dbName}'`, err);
+          return makeError(`Failed to delete station '${dbName.name}'`, err);
         }
       }
     }
@@ -230,6 +243,7 @@ async function processParts(sheet: ExcelJS.Worksheet, tx: txType, plantId: numbe
 }
 
 /* ---------------- STATION PARTS ---------------- */
+// TODO: Handle duplicate station-part entries in Excel
 async function processStationParts(sheet: ExcelJS.Worksheet, tx: txType, plantId: number): Promise<Result> {
   try{
     const dbStationParts = await tx.select()
@@ -295,17 +309,6 @@ async function processStationParts(sheet: ExcelJS.Worksheet, tx: txType, plantId
       const updateData: any = {};
       Object.keys(headerMap).forEach((header) => {
         let cellValue = row.getCell(headerMap[header]).value;
-        
-        // unwrap ExcelJS objects
-        // if (typeof cellValue === "object" && cellValue !== null) {
-        //   console.log(`cellValue: ${JSON.stringify(cellValue, null, 2)}`);
-        //   if ("result" in cellValue) cellValue = cellValue.result; // for formula cells
-        //   else if ("text" in cellValue) cellValue = cellValue.text;
-        //   else if ("richText" in cellValue)
-        //     cellValue = cellValue.richText.map((t: any) => t.text).join("");
-        //   else if ("value" in cellValue)
-        //     cellValue = String(cellValue.value);
-        // }
         
         let value = preprocessCellValue(cellValue);
         console.log(`value: ${value}`);

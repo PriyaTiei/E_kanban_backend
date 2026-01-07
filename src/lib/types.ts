@@ -44,14 +44,15 @@ export interface KanbanEntry {
 }
 
 export interface KanbanCreateRequest {
-  station: string
-  parts: string[]
+  stationPartIds?: string[]
+  rankPartIds?: string[]
 }
 
 export interface suppliedKanban {
-  PART_NUMBER: string,
-  WIP_LOCATION: string,
-  SCAN_SYS_DATE: string
+  KANBAN_NO: string
+  PART_NUMBER: string
+  WIP_LOCATION: string
+  CREATED_SYS_DATE: string
 }
 
 export type txType = PgTransaction<any, typeof import("/home/tnga_iot/shiva/E_kanban_GD/E_kanban_backend/src/db/schema"), any>

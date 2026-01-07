@@ -14,6 +14,7 @@ exports.handleProductShiftTNGA = handleProductShiftTNGA;
 const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
 const drizzle_orm_1 = require("drizzle-orm");
+const lookupCache_1 = require("./lookupCache");
 function insertNewVariant(variant, plantId) {
     return __awaiter(this, void 0, void 0, function* () {
         return client_1.db.insert(schema_1.products)
@@ -23,14 +24,14 @@ function insertNewVariant(variant, plantId) {
         }).returning({ id: schema_1.products.id });
     });
 }
-function handleProductShiftTNGA(variant, plantId, lookupCache, refeedStationId) {
+function handleProductShiftTNGA(variant, plantId, refeedStationId) {
     return __awaiter(this, void 0, void 0, function* () {
         if (Number(variant) < 100 || Number(variant) >= 300) {
             console.error(`Invalid variant for TNGA plant: ${variant}`);
             return;
         }
-        // const lookupCache = new LookupCache();
-        // await lookupCache.initialize(plantId);
+        const lookupCache = new lookupCache_1.LookupCache();
+        yield lookupCache.initialize(plantId);
         let variantId = lookupCache.getProductId(String(variant));
         if (variantId === null) {
             const newVariant = yield insertNewVariant(variant, plantId);

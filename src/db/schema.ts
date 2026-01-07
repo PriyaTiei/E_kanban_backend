@@ -19,6 +19,7 @@ export const products = pgTable("products", {
 export const stations = pgTable("stations", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 50 }).notNull(),
+  sequenceNo: integer("sequence_no").unique(),
   plantId: integer("plant_id").references(() => plants.id, { onDelete: "cascade" }).notNull().default(1),
 });
 
@@ -74,8 +75,13 @@ export const users = pgTable("users", {
 export const kanbanRequests = pgTable("kanban_requests", {
   id: serial("id").primaryKey(),
   plantId: integer("plant_id").references(() => plants.id, { onDelete: "cascade" }).notNull().default(1),
-  stationId: integer("station_id").references(() => stations.id, { onDelete: "cascade" }).notNull(),
-  partId: integer("part_id").references(() => parts.id, { onDelete: "cascade" }).notNull(),
+  stationPartsId: integer("station_parts_id").references(() => stationParts.id, { onDelete: "cascade" }),
+  partId: integer("part_id").references(() => parts.id, { onDelete: "cascade" }),
+  // TODO: Remove these columns after old kanbans are cleared.
+  stationId: integer("station_id").references(() => stations.id, { onDelete: "cascade" }),
+  process: varchar("process", { length: 20 }),
+  supplyLocation: varchar("supply-location", { length: 50 }),
+  // ----------
   productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }),
   requestedAt: timestamp("requested_at", { withTimezone: true }).defaultNow().notNull(),
   acknowledgedByLogistics: boolean("acknowledged_by_logistics").default(false).notNull(),

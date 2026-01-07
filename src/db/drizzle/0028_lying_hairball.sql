@@ -1,0 +1,1 @@
+ALTER TABLE "stations" ADD CONSTRAINT "stations_sequence_no_unique" UNIQUE("sequence_no");

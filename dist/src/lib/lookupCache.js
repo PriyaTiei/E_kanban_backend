@@ -26,11 +26,11 @@ class LookupCache {
         return __awaiter(this, void 0, void 0, function* () {
             const [plantsTable, stationsTable, partsTable, productsTable] = yield Promise.all([
                 client_1.db.select().from(schema_1.plants),
-                client_1.db.select({ id: schema_1.stations.id, name: schema_1.stations.name }).from(schema_1.stations).where((0, drizzle_orm_1.eq)(schema_1.stations.plantId, plantId)),
+                client_1.db.select({ id: schema_1.stations.id, name: schema_1.stations.name }).from(schema_1.stations).where((0, drizzle_orm_1.eq)(schema_1.stations.plantId, plantId)).orderBy(schema_1.stations.sequenceNo),
                 client_1.db.select({ id: schema_1.parts.id, partId: schema_1.parts.partId }).from(schema_1.parts).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.isNotNull)(schema_1.parts.partId), (0, drizzle_orm_1.eq)(schema_1.parts.plantId, plantId))),
                 client_1.db.select({ id: schema_1.products.id, variant: schema_1.products.variant }).from(schema_1.products).where((0, drizzle_orm_1.eq)(schema_1.products.plantId, plantId)),
             ]);
-            this.stationSequence = stationsTable.sort((a, b) => a.id - b.id);
+            this.stationSequence = stationsTable;
             plantsTable.forEach((p) => this.plants.set(p.name, p.id));
             stationsTable.forEach((s) => this.stations.set(s.name, s.id));
             partsTable.forEach((p) => this.parts.set(p.partId, p.id));

@@ -1,7 +1,6 @@
 import { db } from "../db/client";
-import { productEntryLogs, kanbanRequests, stationParts, products } from "../db/schema";
+import { productEntryLogs, kanbanRequests, stationParts, products, stations } from "../db/schema";
 import { eq, and, or, desc, gte, sql } from "drizzle-orm";
-import { LookupCache } from "./lookupCache";
 
 export async function insertNewVariant(variant: string, plantId: number) {
   return db.insert(products)
@@ -11,24 +10,40 @@ export async function insertNewVariant(variant: string, plantId: number) {
     }).returning({ id: products.id });
 }
 
-export async function handleProductShift(variant: string, plantId:number, lookupCache: LookupCache, refeedStationId?: number) {
+export async function handleProductShift(variant: string, plantId:number, refeedStationId?: number) {
   // console.log(`product ${Number(variant)} as entered plant ${plantId}: GD`);
   
   if (Number(variant) < 300 || Number(variant) >= 500) {
     console.error(`Invalid variant for GD plant: ${variant}`);
     return;
   }
-  // const lookupCache = new LookupCache();
-  // await lookupCache.initialize(plantId);
-  let variantId = lookupCache.getProductId(String(variant));
 
-  if (variantId === null) {
-    const newVariant = await insertNewVariant(variant, plantId)
-    variantId = newVariant[0].id
+  // Get variant ID from database
+  let variantRecord = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(eq(products.variant, String(variant)), eq(products.plantId, plantId)))
+    .limit(1);
+  
+  let variantId: number;
+  if (variantRecord.length === 0) {
+    const newVariant = await insertNewVariant(variant, plantId);
+    variantId = newVariant[0].id;
+  } else {
+    variantId = variantRecord[0].id;
   }
-  // const gdPlantName = "GD";
-  // const plantId = lookupCache.getPlantId(gdPlantName);
-  const stationIds = lookupCache.getStationSequence();
+
+  // Get station sequence from database
+  const stationSequence = await db
+    .select({ id: stations.id })
+    .from(stations)
+    .where(eq(stations.plantId, plantId))
+    .orderBy(stations.sequenceNo);
+  
+  const stationIds = stationSequence.map(s => s.id);
+
+  console.log("total stations in the cache: ", stationIds.length);
+
 
   // If refeedStationId is provided, use it; otherwise, use the first station
   const startStationId = refeedStationId ?? stationIds[0];
@@ -44,8 +59,7 @@ export async function handleProductShift(variant: string, plantId:number, lookup
         eq(productEntryLogs.plantId, plantId),
         // Only logs with stationId >= startStationId
         gte(productEntryLogs.stationId, startStationId),
-      )
-    )
+    ))
     .orderBy(desc(productEntryLogs.stationId));
 
   await db.transaction(async (tx) => {
@@ -79,6 +93,8 @@ export async function handleProductShift(variant: string, plantId:number, lookup
       const parts = await tx
         .select({
           id: stationParts.id,
+          process: stationParts.process,
+          supplyLocation: stationParts.supplyLocation,
           binQuantity: stationParts.binQuantity,
           currentQuantity: stationParts.currentQuantity,
           consumptionPerProduct: stationParts.consumptionPerProduct,
@@ -99,9 +115,6 @@ export async function handleProductShift(variant: string, plantId:number, lookup
           )
         );
 
-      const stationName = lookupCache.getStationName(log.stationId);
-      // console.log(`processing station parts for station ${stationName}`);
-
       for (const part of parts) {
         let updatedQuantity: number;
         let remainder: number;
@@ -118,23 +131,16 @@ export async function handleProductShift(variant: string, plantId:number, lookup
             })
             .where(eq(stationParts.id, part.id));
           
-          // TODO: Remove this condition after bin matching.
-          // const stationName = lookupCache.getStationName(log.stationId);
-          // if(!stationName.startsWith("BS-")){
-          //   console.log("stationName:", stationName);
-          //   continue;
-          // }
-
           await tx.insert(kanbanRequests).values({
             plantId: plantId,
-            stationId: log.stationId,
-            partId: part.partId,
-            productId: log.productId,
-          });
+            stationPartsId: part.id,
+            // stationId: log.stationId,
+            // process: part.process,
+            // supplyLocation: part.supplyLocation,
+            // partId: part.partId,
+            // productId: log.productId,
 
-          const productVariant = lookupCache.getProductVariant(log.productId);
-          // console.log(`Raising a kanban request for variant ${variant} at ${stationName} of plant ${plantId} for product ${productVariant}`);
-        
+          });        
         } else {
           updatedQuantity = part.currentQuantity - part.consumptionPerProduct;
           

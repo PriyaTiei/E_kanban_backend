@@ -64,25 +64,26 @@ async function main() {
   const gdPlantId = 1;
   const tngaPlantId = 2;
 
-  const pollIntervalMs = Number(process.env.POLL_INTERVAL_MS || 5000);
+
+  const pollIntervalMs = Number(process.env.POLL_INTERVAL_MS || 2000);
 
   console.log("📡 File watcher started...");
   while (true) {
     try{
       // Load last processed timestamps first
       const lastProcessed = await getSetting(SETTING_KEY_GD);
-      const lastProcessedTNGA = await getSetting(SETTING_KEY_TNGA);
+    //   const lastProcessedTNGA = await getSetting(SETTING_KEY_TNGA);
       const lastDateGD = lastProcessed ? new Date(lastProcessed) : new Date(0);
-      const lastDateTNGA = lastProcessedTNGA ? new Date(lastProcessedTNGA) : new Date(0);
+    //   const lastDateTNGA = lastProcessedTNGA ? new Date(lastProcessedTNGA) : new Date(0);
 
       // 1) Scan files by modification time (skip already processed files by mtime)
-      console.log(`🔍 Scanning for files modified after ${lastDateGD}`);
+      console.log(`🔍 Starting mock run after ${lastDateGD.toISOString()}`);
       // Retry scanning until the network share/mount is available instead of letting the process crash
-      const [newGD, newTNGA] = await retryUntilAvailable(
-        () => listCsvEntriesSinceTimestamp(WATCH_FOLDER, lastDateGD, lastDateTNGA),
-        `CSV watch folder (${WATCH_FOLDER})`
-      );
-
+      const newGD = [{ 
+        id_number: '425',
+        created_at: String(new Date()) 
+      }];
+      
       const gdItems = newGD
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
@@ -90,14 +91,17 @@ async function main() {
         console.log(`📦 Found ${gdItems.length} GD entries`);
         await processEntries(gdItems, gdPlantId, SETTING_KEY_GD);
       }
+      
+      console.log('completed');
+      
 
-      const tngaItems = newTNGA
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    //   const tngaItems = newTNGA
+    //     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-      if (tngaItems.length > 0) {
-        console.log(`📦 Found ${tngaItems.length} TNGA entries`);
-        await processEntries(tngaItems, tngaPlantId, SETTING_KEY_TNGA);
-      }
+    //   if (tngaItems.length > 0) {
+    //     console.log(`📦 Found ${tngaItems.length} TNGA entries`);
+    //     await processEntries(tngaItems, tngaPlantId, SETTING_KEY_TNGA);
+    //   }
       await sleep(pollIntervalMs);
     } catch (err) {
       console.error('Unexpected error in polling loop:', err);

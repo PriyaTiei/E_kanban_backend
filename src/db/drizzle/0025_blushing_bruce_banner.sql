@@ -1,0 +1,1 @@
+ALTER TABLE "kanban_requests" ALTER COLUMN "station_id" DROP NOT NULL;

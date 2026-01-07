@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc",
+    "mock_entry": "ts-node src/scripts/worker/mockProductEntry.ts",
     "entry_worker": "ts-node src/scripts/worker/productEntryWorker.ts",
     "seed": "ts-node src/scripts/seedExcel.ts",
     "seed_users": "ts-node src/scripts/seedUsers.ts",

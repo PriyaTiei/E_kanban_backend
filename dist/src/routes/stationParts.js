@@ -48,7 +48,7 @@ exports.stationPartsRouter.get('/', (req, res) => __awaiter(void 0, void 0, void
             .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.stationParts.stationId, schema_1.stations.id))
             .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.stationParts.partId, schema_1.parts.id))
             .where(whereClause)
-            .orderBy((0, drizzle_orm_1.asc)(schema_1.stationParts.stationId));
+            .orderBy((0, drizzle_orm_1.asc)(schema_1.stations.sequenceNo), (0, drizzle_orm_1.asc)(schema_1.parts.partId));
         res.json(stationData);
     }
     catch (error) {

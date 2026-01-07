@@ -1,18 +1,28 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, not, or, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { kanbanRequests, stationParts, parts, stations, products, plants } from "../db/schema";
 import express from "express";
 
 export const amruthUpdateRouter = express.Router();
 
-amruthUpdateRouter.get("/kanbans", async (req, res): Promise<any> => {
+amruthUpdateRouter.post("/kanbans", async (req, res): Promise<any> => {
   try {
+    const previouslyAcknowledgedKanbans = req.body as number[];
+    console.log("previouslyAcknowledgedKanbans: ", previouslyAcknowledgedKanbans);
+    
     const whereClause = and(
           eq(kanbanRequests.acknowledgedByLogistics, true),
-          eq(kanbanRequests.fulfilled, false)
+          eq(kanbanRequests.fulfilled, false),          
         )
 
+    if (previouslyAcknowledgedKanbans && previouslyAcknowledgedKanbans.length > 0) {
+      and(whereClause,
+        not(inArray(kanbanRequests.id, previouslyAcknowledgedKanbans))
+      );
+    }
+
     const orderByClause = sql`
+      ${kanbanRequests.id},
       CASE
         WHEN ${stationParts.supplyLocation} LIKE 'SA-%' THEN 1
         WHEN ${stationParts.supplyLocation} LIKE 'MK1-%' THEN 2
@@ -24,10 +34,11 @@ amruthUpdateRouter.get("/kanbans", async (req, res): Promise<any> => {
       ${kanbanRequests.acknowledgedAt}
     `;
 
+    const stationPartsJoinCondition = eq(kanbanRequests.stationPartsId, stationParts.id);
     const kanbans = await db
-      .select({
-        id: sql<number>`ROW_NUMBER() OVER (ORDER BY ${orderByClause})`.as('id'),
-        sequenceNo: sql<number>`ROW_NUMBER() OVER (ORDER BY ${orderByClause})`.as('sequenceNo'),
+      .selectDistinctOn([kanbanRequests.id],{
+        id: kanbanRequests.id,
+        sequenceNo: kanbanRequests.id,
         process: stationParts.process,
         plantId: plants.plantId,
         partId: parts.partId,
@@ -35,14 +46,11 @@ amruthUpdateRouter.get("/kanbans", async (req, res): Promise<any> => {
         partNumber: parts.partNumber,
         boxQty: stationParts.binQuantity,
         supplyLocation: stationParts.supplyLocation,
-        // sequenceNo: kanbanRequests.id,
         acknowledgedAt: kanbanRequests.acknowledgedAt,
       })
       .from(kanbanRequests)
-      .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
-      .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
-      .leftJoin(stationParts, eq(kanbanRequests.partId, stationParts.partId))
-      .leftJoin(products, eq(kanbanRequests.productId, products.id))
+      .leftJoin(stationParts, stationPartsJoinCondition)
+      .leftJoin(parts, eq(stationParts.partId, parts.id))
       .leftJoin(plants, eq(kanbanRequests.plantId, plants.id))
       .where(whereClause)
       .orderBy(orderByClause);
@@ -66,7 +74,7 @@ amruthUpdateRouter.get("/kanbans", async (req, res): Promise<any> => {
         return kanban;
       });
 
-      console.log("Count of kanbans for part id 2160: ", ISTDateFormatedResult.filter(k => k.partId === '2160').length);
+      console.log("Count of kanbans: ", ISTDateFormatedResult.length);
       
 
     return res.status(200).json(ISTDateFormatedResult);

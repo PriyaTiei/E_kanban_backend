@@ -26,7 +26,7 @@ exports.stationsRouter.get('/', (req, res) => __awaiter(void 0, void 0, void 0, 
         }
         const plantId = user.plantId;
         const whereClause = (0, drizzle_orm_1.eq)(schema_1.stations.plantId, plantId);
-        const stationDetails = yield client_1.db.select().from(schema_1.stations).where(whereClause).orderBy(schema_1.stations.id);
+        const stationDetails = yield client_1.db.select().from(schema_1.stations).where(whereClause).orderBy(schema_1.stations.sequenceNo);
         res.json(stationDetails);
     }
     catch (error) {

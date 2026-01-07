@@ -68,9 +68,14 @@ function start() {
         app.use("/auth", userAuth_1.userAuthRouter); // Allow login/logout/session check without auth
         // Auth middleware for all other routes
         app.use((req, res, next) => __awaiter(this, void 0, void 0, function* () {
-            if (req.session.user) {
-                // Initialize cache
-                yield lookupCache_1.lookupCache.initialize(req.session.user.plantId);
+            // Whitelist public routes
+            const publicPaths = ['/supply'];
+            const isPublicRoute = publicPaths.some(path => req.path.startsWith(path));
+            if (isPublicRoute || req.session.user) {
+                // Initialize cache only for authenticated users
+                if (req.session.user) {
+                    yield lookupCache_1.lookupCache.initialize(req.session.user.plantId);
+                }
                 return next();
             }
             res.status(401).json({ error: "Not authenticated" });

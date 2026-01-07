@@ -3,7 +3,6 @@ import fetch from 'node-fetch';
 import { ProductEntry, ProductEntryResponse } from '../../lib/types';
 import { handleProductShift } from '../../lib/productEntryHelper';
 import { getSetting, setSetting } from '../../lib/settingsService';
-import { LookupCache } from '../../lib/lookupCache';
 import { handleProductShiftTNGA } from '../../lib/productEntryHelperTNGA';
 
 dotenv.config();
@@ -14,12 +13,12 @@ const POLL_INTERVAL_MS = 5000;
 const SETTING_KEY_GD = "last_processed_timestamp";
 const SETTING_KEY_TNGA = "last_processed_timestamp_tnga";
 
-async function processEntries(sorted: ProductEntry[], plantId: number, settingKey: string, lookupCache: LookupCache) {
+async function processEntries(sorted: ProductEntry[], plantId: number, settingKey: string) {
   for (const entry of sorted) {
     console.log(`⚙️ Processing ${entry.id_number} at ${entry.created_at} for plantId ${plantId}`);
     plantId === 1 ? 
-      await handleProductShift(entry.id_number, plantId, lookupCache)
-      : await handleProductShiftTNGA(entry.id_number, plantId, lookupCache);
+      await handleProductShift(entry.id_number, plantId)
+      : await handleProductShiftTNGA(entry.id_number, plantId);
   }
 
   // ✅ Update last processed timestamp only once, based on the last entry
@@ -42,10 +41,6 @@ async function pollEntries() {
       const lastProcessedTNGA = await getSetting(SETTING_KEY_TNGA);
       const lastProcessedDateGD = lastProcessed ? new Date(lastProcessed) : new Date(0);
       const lastProcessedDateTNGA = lastProcessedTNGA ? new Date(lastProcessedTNGA) : new Date(0);
-      const lookupCacheGD = new LookupCache();
-      const lookupCacheTNGA = new LookupCache();
-      await lookupCacheGD.initialize(gdPlantId);
-      await lookupCacheTNGA.initialize(tngaPlantId);
       
       const res = await fetch(API_URL, {
         method: 'GET',
@@ -72,7 +67,7 @@ async function pollEntries() {
 
       console.log(`📦 Found ${sortedGD.length} new entries for GD since last processed at ${lastProcessedDateGD.toLocaleString()}: `,sortedGD);
       
-      processEntries(sortedGD, gdPlantId, SETTING_KEY_GD, lookupCacheGD);
+      processEntries(sortedGD, gdPlantId, SETTING_KEY_GD);
 
       // Sort oldest to newest for TNGA
       const sortedTNGA = entries
@@ -86,7 +81,7 @@ async function pollEntries() {
 
       console.log(`📦 Found ${sortedTNGA.length} new entries for TNGA since last processed at ${lastProcessedDateTNGA.toLocaleString()}: `,sortedTNGA);
       
-      processEntries(sortedTNGA, tngaPlantId, SETTING_KEY_TNGA, lookupCacheTNGA);
+      processEntries(sortedTNGA, tngaPlantId, SETTING_KEY_TNGA);
     }
   } catch (err) {
     console.error("❌ Polling error:", err);

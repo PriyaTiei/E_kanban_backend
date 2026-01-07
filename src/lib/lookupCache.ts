@@ -13,12 +13,12 @@ export class LookupCache {
   async initialize(plantId: number) {
     const [plantsTable, stationsTable, partsTable, productsTable] = await Promise.all([
       db.select().from(plants),
-      db.select({ id: stations.id, name: stations.name }).from(stations).where(eq(stations.plantId, plantId)),
+      db.select({ id: stations.id, name: stations.name }).from(stations).where(eq(stations.plantId, plantId)).orderBy(stations.sequenceNo),
       db.select({ id: parts.id, partId: parts.partId }).from(parts).where(and(isNotNull(parts.partId),eq(parts.plantId, plantId))),
       db.select({ id: products.id, variant: products.variant }).from(products).where(eq(products.plantId, plantId)),
     ]);
 
-    this.stationSequence = stationsTable.sort((a, b) => a.id - b.id);
+    this.stationSequence = stationsTable;
 
     plantsTable.forEach((p) => this.plants.set(p.name, p.id));
     stationsTable.forEach((s) => this.stations.set(s.name, s.id));
