@@ -25,6 +25,7 @@ const selectKanbanFields = {
     partId: schema_1.kanbanRequests.partId,
     partIdNo: schema_1.parts.partId,
     partName: schema_1.parts.name,
+    requestedAt: schema_1.kanbanRequests.requestedAt,
     prepLocation: schema_1.stationParts.prepLocation,
 };
 exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -200,10 +201,10 @@ exports.preparationSheetRouter.put("/kanban", (req, res) => __awaiter(void 0, vo
     if (!user) {
         return res.status(401).json({ error: "Unauthorized" });
     }
-    const isAuthorized = user.role === "admin" || user.role === "logistics";
-    if (!isAuthorized) {
-        return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
-    }
+    // const isAuthorized = user.role === "admin" || user.role === "logistics";
+    // if (!isAuthorized) {
+    //   return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
+    // }
     const { kanbanIds } = req.body;
     console.log("Received request to update kanban in prep list:", kanbanIds);
     if (!Array.isArray(kanbanIds) || kanbanIds.length === 0) {
@@ -234,9 +235,9 @@ exports.preparationSheetRouter.put("/kanban/all", (req, res) => __awaiter(void 0
     if (!user) {
         return res.status(401).json({ error: "Unauthorized" });
     }
-    const isAuthorized = user.role === "admin" || user.role === "logistics";
+    const isAuthorized = user.role === "admin";
     if (!isAuthorized) {
-        return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
+        return res.status(403).json({ error: "Forbidden: Only admins can update multiple kanbans at once." });
     }
     const { process } = req.query;
     console.log(`Received request to update all kanban in prep list ${process && `for process: ${process}`}`);
@@ -282,10 +283,10 @@ exports.preparationSheetRouter.post("/kanbans/freeze", (req, res) => __awaiter(v
         if (!user) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const isAuthorized = user.role === "admin" || user.role === "logistics";
-        if (!isAuthorized) {
-            return res.status(403).json({ error: "Forbidden: Only admins and logistics can freeze kanbans" });
-        }
+        // const isAuthorized = user.role === "admin" || user.role === "logistics";
+        // if (!isAuthorized) {
+        //   return res.status(403).json({ error: "Forbidden: Only admins and logistics can freeze kanbans" });
+        // }
         const { process } = req.body;
         if (!process) {
             return res.status(400).json({ error: "Process is required" });
@@ -348,10 +349,10 @@ exports.preparationSheetRouter.post("/kanbans/unfreeze", (req, res) => __awaiter
         if (!user) {
             return res.status(401).json({ error: "Unauthorized" });
         }
-        const isAuthorized = user.role === "admin" || user.role === "logistics";
-        if (!isAuthorized) {
-            return res.status(403).json({ error: "Forbidden: Only admins and logistics can unfreeze kanbans" });
-        }
+        // const isAuthorized = user.role === "admin" || user.role === "logistics";
+        // if (!isAuthorized) {
+        //   return res.status(403).json({ error: "Forbidden: Only admins and logistics can unfreeze kanbans" });
+        // }
         const { process } = req.body;
         const plantId = user.plantId;
         if (!process) {
@@ -385,10 +386,10 @@ exports.preparationSheetRouter.post("/kanbans/create", (req, res) => __awaiter(v
     if (!user) {
         return res.status(401).json({ error: "Unauthorized" });
     }
-    const isAdmin = user.role === "admin";
-    if (!isAdmin) {
-        return res.status(403).json({ error: "Forbidden: Only admins can create kanbans" });
-    }
+    // const isAdmin = user.role === "admin";
+    // if (!isAdmin) {
+    //   return res.status(403).json({ error: "Forbidden: Only admins can create kanbans" });
+    // }
     const plantId = user.plantId;
     const data = req.body;
     try {

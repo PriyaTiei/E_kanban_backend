@@ -22,9 +22,9 @@ exports.amruthUpdateRouter.post("/kanbans", (req, res) => __awaiter(void 0, void
     try {
         const previouslyAcknowledgedKanbans = req.body;
         console.log("previouslyAcknowledgedKanbans: ", previouslyAcknowledgedKanbans);
-        const whereClause = (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.fulfilled, false));
+        let whereClause = (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.kanbanRequests.acknowledgedByLogistics, true), (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.fulfilled, false));
         if (previouslyAcknowledgedKanbans && previouslyAcknowledgedKanbans.length > 0) {
-            (0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.not)((0, drizzle_orm_1.inArray)(schema_1.kanbanRequests.id, previouslyAcknowledgedKanbans)));
+            whereClause = (0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.not)((0, drizzle_orm_1.inArray)(schema_1.kanbanRequests.id, previouslyAcknowledgedKanbans)));
         }
         const orderByClause = (0, drizzle_orm_1.sql) `
       ${schema_1.kanbanRequests.id},

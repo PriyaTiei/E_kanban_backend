@@ -249,9 +249,9 @@ supplySheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const isAuthorized = user.role === "admin" || user.role === "logistics";
+  const isAuthorized = user.role === "admin" || user.role === "supplier";
   if (!isAuthorized) {
-    return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
+    return res.status(403).json({ error: "Forbidden: Only admins and supplier can update kanbans" });
   }
   
   const { process } = req.query;

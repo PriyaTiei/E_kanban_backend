@@ -4,6 +4,7 @@ import { kanbanRequests, stations, parts, products, frozenKanbans, processFreeze
 import { eq, and, asc, count, sql, inArray, or, ilike, isNull } from "drizzle-orm";
 import { KanbanCreateRequest, KanbanEntry, KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
+import { request } from "http";
 
 export const preparationSheetRouter = express.Router();
 
@@ -13,6 +14,7 @@ const selectKanbanFields = {
     partId: kanbanRequests.partId,
     partIdNo: parts.partId,
     partName: parts.name,
+    requestedAt: kanbanRequests.requestedAt,
     prepLocation: stationParts.prepLocation,
 }
 
@@ -228,10 +230,10 @@ preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const isAuthorized = user.role === "admin" || user.role === "logistics";
-  if (!isAuthorized) {
-    return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
-  }
+  // const isAuthorized = user.role === "admin" || user.role === "logistics";
+  // if (!isAuthorized) {
+  //   return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
+  // }
   
   const { kanbanIds } = req.body as KanbanModifyRequest;
   console.log("Received request to update kanban in prep list:", kanbanIds);
@@ -268,9 +270,9 @@ preparationSheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const isAuthorized = user.role === "admin" || user.role === "logistics";
+  const isAuthorized = user.role === "admin";
   if (!isAuthorized) {
-    return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
+    return res.status(403).json({ error: "Forbidden: Only admins can update multiple kanbans at once." });
   }
   
   const { process } = req.query;
@@ -329,10 +331,10 @@ preparationSheetRouter.post("/kanbans/freeze", async (req, res): Promise<any> =>
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const isAuthorized = user.role === "admin" || user.role === "logistics";
-    if (!isAuthorized) {
-      return res.status(403).json({ error: "Forbidden: Only admins and logistics can freeze kanbans" });
-    }
+    // const isAuthorized = user.role === "admin" || user.role === "logistics";
+    // if (!isAuthorized) {
+    //   return res.status(403).json({ error: "Forbidden: Only admins and logistics can freeze kanbans" });
+    // }
 
     const { process } = req.body;
     if (!process) {
@@ -410,10 +412,10 @@ preparationSheetRouter.post("/kanbans/unfreeze", async (req, res): Promise<any> 
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const isAuthorized = user.role === "admin" || user.role === "logistics";
-    if (!isAuthorized) {
-      return res.status(403).json({ error: "Forbidden: Only admins and logistics can unfreeze kanbans" });
-    }
+    // const isAuthorized = user.role === "admin" || user.role === "logistics";
+    // if (!isAuthorized) {
+    //   return res.status(403).json({ error: "Forbidden: Only admins and logistics can unfreeze kanbans" });
+    // }
 
     const { process } = req.body;
     const plantId = user.plantId;
@@ -451,10 +453,10 @@ preparationSheetRouter.post("/kanbans/create", async (req, res): Promise<any> =>
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const isAdmin = user.role === "admin";
-  if (!isAdmin) {
-    return res.status(403).json({ error: "Forbidden: Only admins can create kanbans" });
-  }
+  // const isAdmin = user.role === "admin";
+  // if (!isAdmin) {
+  //   return res.status(403).json({ error: "Forbidden: Only admins can create kanbans" });
+  // }
 
   const plantId = user.plantId;
   const data:KanbanCreateRequest = req.body;

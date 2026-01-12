@@ -10,13 +10,13 @@ amruthUpdateRouter.post("/kanbans", async (req, res): Promise<any> => {
     const previouslyAcknowledgedKanbans = req.body as number[];
     console.log("previouslyAcknowledgedKanbans: ", previouslyAcknowledgedKanbans);
     
-    const whereClause = and(
+    let whereClause = and(
           eq(kanbanRequests.acknowledgedByLogistics, true),
           eq(kanbanRequests.fulfilled, false),          
         )
 
     if (previouslyAcknowledgedKanbans && previouslyAcknowledgedKanbans.length > 0) {
-      and(whereClause,
+      whereClause = and(whereClause,
         not(inArray(kanbanRequests.id, previouslyAcknowledgedKanbans))
       );
     }
