@@ -81,6 +81,14 @@ exports.kanbanRequests = (0, pg_core_1.pgTable)("kanban_requests", {
     fulfilled: (0, pg_core_1.boolean)("fulfilled").default(false).notNull(),
     fulfilledAt: (0, pg_core_1.timestamp)("fulfilled_at", { withTimezone: true }),
 });
+// export const delayKanbans = pgTable("delay_kanbans", {
+//   id: serial("id").primaryKey(),
+//   plantId: integer("plant_id").references(() => plants.id, { onDelete: "cascade" }).notNull().default(1),
+//   kanbanId: integer("kanban_id").references(() => kanbanRequests.id, { onDelete: "cascade" }),
+//   reportedAt: timestamp("reported_at", { withTimezone: true }).defaultNow().notNull(),
+//   arrangedByLogistics: boolean("arranged_by_logistics").default(false).notNull(),
+//   arrangedAt: timestamp("arranged_at", { withTimezone: true }),
+// });
 exports.frozenKanbans = (0, pg_core_1.pgTable)("frozen_kanbans", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
     process: (0, pg_core_1.varchar)("process", { length: 20 }).notNull(),

@@ -22,7 +22,6 @@ exports.preparationSheetRouter = express_1.default.Router();
 const selectKanbanFields = {
     id: schema_1.kanbanRequests.id,
     process: schema_1.stationParts.process,
-    partId: schema_1.kanbanRequests.partId,
     partIdNo: schema_1.parts.partId,
     partName: schema_1.parts.name,
     requestedAt: schema_1.kanbanRequests.requestedAt,
@@ -36,11 +35,9 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
             return res.status(401).json({ error: "Unauthorized" });
         }
         const plantId = user.plantId;
-        console.log(`plantId: ${plantId}`);
         // Process filter from query params, e.g., /kanbans?process=1
         const processFilter = req.query.process ? String(req.query.process) : null;
         const searchFilter = req.query.search ? String(req.query.search) : null;
-        console.log(`processFilter: ${processFilter}, searchFilter: ${searchFilter}`);
         const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
         const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
         const offset = (page - 1) * limit;
@@ -95,7 +92,6 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
                 .leftJoin(schema_1.parts, (0, drizzle_orm_1.sql) `${schema_1.parts.id} = COALESCE(${schema_1.stationParts.partId}, ${schema_1.kanbanRequests.partId})`)
                 .where(baseWhereClause))[0]) === null || _b === void 0 ? void 0 : _b.total;
             const totalPages = Math.ceil((total !== null && total !== void 0 ? total : 0) / limit);
-            console.log(JSON.stringify(kanbans, null, 2));
             return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: false, total, totalPages });
         }
         if (processFilter === 'rank parts') {
@@ -111,7 +107,6 @@ exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, v
                 .offset(offset);
             const total = rankKanbans[0].total;
             const totalPages = Math.ceil((total !== null && total !== void 0 ? total : 0) / limit);
-            console.log(JSON.stringify(kanbans, null, 2));
             return res.status(200).json({ kanbans, processes: uniqueProcesses, isFrozenData: false, total, totalPages });
         }
         // Check if this process is frozen
@@ -208,7 +203,6 @@ exports.preparationSheetRouter.put("/kanban", (req, res) => __awaiter(void 0, vo
     const { kanbanIds } = req.body;
     console.log("Received request to update kanban in prep list:", kanbanIds);
     if (!Array.isArray(kanbanIds) || kanbanIds.length === 0) {
-        console.log("kanbanIds array is required");
         return res.status(400).json({ error: "kanbanIds array is required" });
     }
     try {
@@ -220,7 +214,6 @@ exports.preparationSheetRouter.put("/kanban", (req, res) => __awaiter(void 0, vo
             .where((0, drizzle_orm_1.inArray)(schema_1.kanbanRequests.id, kanbanIds))
             .returning();
         if (result.length === 0) {
-            console.log("Kanban not found");
             return res.status(404).json({ message: "Kanban not found" });
         }
         return res.status(200).json({ message: "Kanban updated successfully", updatedKanbans: result });
@@ -393,7 +386,6 @@ exports.preparationSheetRouter.post("/kanbans/create", (req, res) => __awaiter(v
     const plantId = user.plantId;
     const data = req.body;
     try {
-        console.log('kanban create data: ', JSON.stringify(data));
         if (((_a = data.stationPartIds) === null || _a === void 0 ? void 0 : _a.length) === 0 && ((_b = data.rankPartIds) === null || _b === void 0 ? void 0 : _b.length) === 0) {
             return res.status(400).json({ error: "At least one kanban entry is required" });
         }

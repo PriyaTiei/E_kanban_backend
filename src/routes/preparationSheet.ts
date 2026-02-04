@@ -11,7 +11,6 @@ export const preparationSheetRouter = express.Router();
 const selectKanbanFields = {
     id: kanbanRequests.id,
     process: stationParts.process,
-    partId: kanbanRequests.partId,
     partIdNo: parts.partId,
     partName: parts.name,
     requestedAt: kanbanRequests.requestedAt,
@@ -25,14 +24,11 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const plantId = user.plantId;
-    console.log(`plantId: ${plantId}`);
-    
+    const plantId = user.plantId;    
 
     // Process filter from query params, e.g., /kanbans?process=1
     const processFilter = req.query.process ? String(req.query.process) : null;
     const searchFilter = req.query.search ? String(req.query.search) : null;
-    console.log(`processFilter: ${processFilter}, searchFilter: ${searchFilter}`);
     const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
     const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
     const offset = (page - 1) * limit;
@@ -106,7 +102,6 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .where(baseWhereClause))[0]?.total
 
         const totalPages = Math.ceil((total ?? 0) / limit);
-        console.log(JSON.stringify(kanbans, null, 2));
         
       return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false, total, totalPages});
     }
@@ -126,7 +121,6 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         const total = rankKanbans[0].total
 
         const totalPages = Math.ceil((total ?? 0) / limit);
-        console.log(JSON.stringify(kanbans, null, 2));
         
       return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false, total, totalPages});
     }
@@ -239,7 +233,6 @@ preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
   console.log("Received request to update kanban in prep list:", kanbanIds);
 
   if (!Array.isArray(kanbanIds) || kanbanIds.length === 0) {
-    console.log("kanbanIds array is required");
     return res.status(400).json({ error: "kanbanIds array is required" });
   }
 
@@ -254,7 +247,6 @@ preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
     .returning();
 
     if (result.length === 0) {
-      console.log("Kanban not found");
       return res.status(404).json({ message: "Kanban not found" });
     }
 
@@ -460,9 +452,7 @@ preparationSheetRouter.post("/kanbans/create", async (req, res): Promise<any> =>
 
   const plantId = user.plantId;
   const data:KanbanCreateRequest = req.body;
-  try {
-    console.log('kanban create data: ', JSON.stringify(data));
-    
+  try {    
     if (data.stationPartIds?.length === 0 && data.rankPartIds?.length === 0) {
       return res.status(400).json({ error: "At least one kanban entry is required" });
     }

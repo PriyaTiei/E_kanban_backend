@@ -90,6 +90,15 @@ export const kanbanRequests = pgTable("kanban_requests", {
   fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
 });
 
+// export const delayKanbans = pgTable("delay_kanbans", {
+//   id: serial("id").primaryKey(),
+//   plantId: integer("plant_id").references(() => plants.id, { onDelete: "cascade" }).notNull().default(1),
+//   kanbanId: integer("kanban_id").references(() => kanbanRequests.id, { onDelete: "cascade" }),
+//   reportedAt: timestamp("reported_at", { withTimezone: true }).defaultNow().notNull(),
+//   arrangedByLogistics: boolean("arranged_by_logistics").default(false).notNull(),
+//   arrangedAt: timestamp("arranged_at", { withTimezone: true }),
+// });
+
 export const frozenKanbans = pgTable("frozen_kanbans", {
   id: serial("id").primaryKey(),
   process: varchar("process", { length: 20 }).notNull(),

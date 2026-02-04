@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import { db } from "../db/client";
-import { kanbanRequests, stations, parts, products, plants } from "../db/schema";
-import { eq, sql, desc, count } from "drizzle-orm";
+import { kanbanRequests, stations, parts, products, plants, stationParts } from "../db/schema";
+import { eq, sql, desc, count, and, or, ilike, SQL, lte } from "drizzle-orm";
 
 export const kanbanRequestsLogRouter = express.Router();
 
@@ -18,20 +18,44 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
     const limit = req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20;
     const offset = (page - 1) * limit;
 
-    const whereClause = eq(kanbanRequests.plantId, plantId);
+    // filters from query params
+    const status = req.query.status ? String(req.query.status) : null;
+    const dateTime = req.query.dateTime ? String(req.query.dateTime) : null;
+    const searchFilter = req.query.search ? String(req.query.search) : null;
+
+    console.log("status filter: ", status, "\ndateTime filter: ", dateTime, "\nsearch filter: ", searchFilter);
+    
+    let whereClause: SQL | undefined = eq(kanbanRequests.plantId, plantId);
+
+    if (status === "requested") {
+      whereClause = sql`${whereClause} AND ${kanbanRequests.acknowledgedByLogistics} = false AND ${kanbanRequests.fulfilled} = false`;
+    } else if (status === "acknowledged") {
+      whereClause = sql`${whereClause} AND ${kanbanRequests.acknowledgedByLogistics} = true AND ${kanbanRequests.fulfilled} = false`;
+    } else if (status === "fulfilled") {
+      whereClause = sql`${whereClause} AND ${kanbanRequests.fulfilled} = true`;
+    }
+
+    if (dateTime) {
+      whereClause = and(whereClause, lte(kanbanRequests.requestedAt, new Date(dateTime)));
+    }
+
+    if (searchFilter) {
+      whereClause = and(whereClause, 
+        or(
+          ilike(parts.partId, `%${searchFilter}%`),
+          ilike(stations.name, `%${searchFilter}%`),
+        )
+      );
+    }
 
     const logs = await db
       .select({
         id: kanbanRequests.id,
         plantId: kanbanRequests.plantId,
         plantName: plants.name,
-        stationId: kanbanRequests.stationId,
         stationName: stations.name,
-        partId: kanbanRequests.partId,
         partIdNo: parts.partId,
         partName: parts.name,
-        productId: kanbanRequests.productId,
-        productName: products.variant,
         requestedAt: kanbanRequests.requestedAt,
         acknowledgedByLogistics: kanbanRequests.acknowledgedByLogistics,
         acknowledgedAt: kanbanRequests.acknowledgedAt,
@@ -40,21 +64,26 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
       })
       .from(kanbanRequests)
       .leftJoin(plants, eq(kanbanRequests.plantId, plants.id))
-      .leftJoin(stations, eq(kanbanRequests.stationId, stations.id))
-      .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
+      .leftJoin(stationParts,  eq(kanbanRequests.stationPartsId, stationParts.id))
+      .leftJoin(parts, sql`${parts.id} = COALESCE(${stationParts.partId}, ${kanbanRequests.partId})`)
+      .leftJoin(stations, eq(stationParts.stationId, stations.id))
       .leftJoin(products, eq(kanbanRequests.productId, products.id))
       .where(whereClause)
       .orderBy(desc(kanbanRequests.requestedAt))
       .limit(limit)
       .offset(offset);
 
-      const totalLogs = await db.
+    const totalLogs = await db.
       select({ total: count() })
       .from(kanbanRequests)
+      .leftJoin(stationParts, eq(kanbanRequests.stationPartsId, stationParts.id))
+      .leftJoin(parts, sql`${parts.id} = COALESCE(${stationParts.partId}, ${kanbanRequests.partId})`)
+      .leftJoin(stations, eq(stationParts.stationId, stations.id))
       .where(whereClause);
 
-      const totalPages = Math.ceil((totalLogs[0]?.total ?? 0) / limit);
-
+    const totalPages = Math.ceil((totalLogs[0]?.total ?? 0) / limit);
+    console.log('total pages: ', totalPages);
+    
     return res.json({logs, totalPages});
   } catch (error) {
     console.error("Error fetching kanban requests log:", error);
