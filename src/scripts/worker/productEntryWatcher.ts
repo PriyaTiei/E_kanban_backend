@@ -37,7 +37,7 @@ async function retryUntilAvailable<T>(fn: () => Promise<T>, description = 'resou
             }
             attempt++;
             const delay = Math.min(30000, 2000 + attempt * 2000); // grow to max 30s
-            console.warn(`⚠️ ${description} unavailable (${err.code}). Retrying in ${Math.round(delay/1000)}s...`);
+            console.warn(`⚠️ ${description} unavailable (${err.code}) at ${new Date()}. Retrying in ${Math.round(delay/1000)}s...`);
             await sleep(delay);
         }
     }
@@ -55,7 +55,7 @@ async function processEntries(sorted: ProductEntry[], plantId: number, settingKe
     const lastEntry = sorted[sorted.length - 1];
     await setSetting(
       settingKey,
-      new Date(new Date(lastEntry.created_at).getTime() + 1000).toISOString()
+      String(new Date(new Date(lastEntry.created_at).getTime() + 1000))
     );
   }
 }

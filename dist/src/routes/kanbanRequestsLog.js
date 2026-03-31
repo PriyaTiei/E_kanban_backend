@@ -70,7 +70,6 @@ exports.kanbanRequestsLogRouter.get("/", (req, res) => __awaiter(void 0, void 0,
             .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationPartsId, schema_1.stationParts.id))
             .leftJoin(schema_1.parts, (0, drizzle_orm_1.sql) `${schema_1.parts.id} = COALESCE(${schema_1.stationParts.partId}, ${schema_1.kanbanRequests.partId})`)
             .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.stationParts.stationId, schema_1.stations.id))
-            .leftJoin(schema_1.products, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.productId, schema_1.products.id))
             .where(whereClause)
             .orderBy((0, drizzle_orm_1.desc)(schema_1.kanbanRequests.requestedAt))
             .limit(limit)
@@ -83,7 +82,6 @@ exports.kanbanRequestsLogRouter.get("/", (req, res) => __awaiter(void 0, void 0,
             .leftJoin(schema_1.stations, (0, drizzle_orm_1.eq)(schema_1.stationParts.stationId, schema_1.stations.id))
             .where(whereClause);
         const totalPages = Math.ceil(((_b = (_a = totalLogs[0]) === null || _a === void 0 ? void 0 : _a.total) !== null && _b !== void 0 ? _b : 0) / limit);
-        console.log('total pages: ', totalPages);
         return res.json({ logs, totalPages });
     }
     catch (error) {

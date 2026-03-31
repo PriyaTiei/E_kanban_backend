@@ -29,6 +29,7 @@ const userAuth_1 = require("./routes/userAuth");
 const kanbanRequestsLog_1 = require("./routes/kanbanRequestsLog");
 const amruthUpdate_1 = require("./routes/amruthUpdate");
 const fileUpload_1 = require("./routes/fileUpload");
+const delaySheet_1 = require("./routes/delaySheet");
 dotenv_1.default.config();
 const HOST = process.env.APP_HOST;
 const devMode = process.env.NODE_ENV === "development";
@@ -83,6 +84,7 @@ function start() {
         // Protected routes
         app.use("/preparation-sheet", preparationSheet_1.preparationSheetRouter);
         app.use("/supply-sheet", supplySheet_1.supplySheetRouter);
+        app.use("/delay-sheet", delaySheet_1.delaySheetRouter);
         app.use('/station-parts', stationParts_1.stationPartsRouter);
         app.use('/product-entry-logs', productEntryLogs_1.productEntryLogsRouter);
         app.use('/product-variants', products_1.productVariantsRouter);

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.settings = exports.kanbanActions = exports.processFreezeState = exports.frozenKanbans = exports.kanbanRequests = exports.users = exports.productEntryLogs = exports.productPartExceptions = exports.stationParts = exports.parts = exports.stations = exports.products = exports.plants = exports.kanbanActionTypeEnum = exports.userRoleEnum = void 0;
+exports.settings = exports.kanbanActions = exports.processFreezeState = exports.frozenKanbans = exports.delayKanbans = exports.kanbanRequests = exports.users = exports.productEntryLogs = exports.productPartExceptions = exports.stationParts = exports.parts = exports.stations = exports.products = exports.plants = exports.kanbanActionTypeEnum = exports.userRoleEnum = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 exports.userRoleEnum = (0, pg_core_1.pgEnum)("user_role", ["logistics", "supplier", "admin"]);
 exports.kanbanActionTypeEnum = (0, pg_core_1.pgEnum)("kanban_action_type", ["created", "acknowledged", "fulfilled"]);
@@ -81,14 +81,14 @@ exports.kanbanRequests = (0, pg_core_1.pgTable)("kanban_requests", {
     fulfilled: (0, pg_core_1.boolean)("fulfilled").default(false).notNull(),
     fulfilledAt: (0, pg_core_1.timestamp)("fulfilled_at", { withTimezone: true }),
 });
-// export const delayKanbans = pgTable("delay_kanbans", {
-//   id: serial("id").primaryKey(),
-//   plantId: integer("plant_id").references(() => plants.id, { onDelete: "cascade" }).notNull().default(1),
-//   kanbanId: integer("kanban_id").references(() => kanbanRequests.id, { onDelete: "cascade" }),
-//   reportedAt: timestamp("reported_at", { withTimezone: true }).defaultNow().notNull(),
-//   arrangedByLogistics: boolean("arranged_by_logistics").default(false).notNull(),
-//   arrangedAt: timestamp("arranged_at", { withTimezone: true }),
-// });
+exports.delayKanbans = (0, pg_core_1.pgTable)("delay_kanbans", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id, { onDelete: "cascade" }).notNull().default(1),
+    kanbanId: (0, pg_core_1.integer)("kanban_id").references(() => exports.kanbanRequests.id, { onDelete: "cascade" }),
+    reportedAt: (0, pg_core_1.timestamp)("reported_at", { withTimezone: true }).defaultNow().notNull(),
+    arrangedByLogistics: (0, pg_core_1.boolean)("arranged_by_logistics").default(false).notNull(),
+    arrangedAt: (0, pg_core_1.timestamp)("arranged_at", { withTimezone: true }),
+});
 exports.frozenKanbans = (0, pg_core_1.pgTable)("frozen_kanbans", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
     process: (0, pg_core_1.varchar)("process", { length: 20 }).notNull(),

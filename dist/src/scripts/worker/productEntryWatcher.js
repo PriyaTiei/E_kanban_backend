@@ -48,7 +48,7 @@ function retryUntilAvailable(fn_1) {
                 }
                 attempt++;
                 const delay = Math.min(30000, 2000 + attempt * 2000); // grow to max 30s
-                console.warn(`⚠️ ${description} unavailable (${err.code}). Retrying in ${Math.round(delay / 1000)}s...`);
+                console.warn(`⚠️ ${description} unavailable (${err.code}) at ${new Date()}. Retrying in ${Math.round(delay / 1000)}s...`);
                 yield sleep(delay);
             }
         }
@@ -64,7 +64,7 @@ function processEntries(sorted, plantId, settingKey) {
         }
         if (sorted.length > 0) {
             const lastEntry = sorted[sorted.length - 1];
-            yield (0, settingsService_1.setSetting)(settingKey, new Date(new Date(lastEntry.created_at).getTime() + 1000).toISOString());
+            yield (0, settingsService_1.setSetting)(settingKey, String(new Date(new Date(lastEntry.created_at).getTime() + 1000)));
         }
     });
 }

@@ -1,10 +1,9 @@
 import express from "express";
 import { db } from "../db/client";
-import { kanbanRequests, stations, parts, products, frozenKanbans, processFreezeState, stationParts } from "../db/schema";
+import { kanbanRequests, stations, parts, products, frozenKanbans, processFreezeState, stationParts, delayKanbans } from "../db/schema";
 import { eq, and, asc, count, sql, inArray, or, ilike, isNull } from "drizzle-orm";
 import { KanbanCreateRequest, KanbanEntry, KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
-import { request } from "http";
 
 export const preparationSheetRouter = express.Router();
 
@@ -15,6 +14,9 @@ const selectKanbanFields = {
     partName: parts.name,
     requestedAt: kanbanRequests.requestedAt,
     prepLocation: stationParts.prepLocation,
+    reportId: delayKanbans.id,
+    reportedAt: delayKanbans.reportedAt,
+    arrangedAt: delayKanbans.arrangedAt,
 }
 
 preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
@@ -79,7 +81,8 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         ELSE 3
       END,
       NULLIF(regexp_replace(${stationParts.prepLocation}, '[^0-9]', '', 'g'), '')::int,
-      ${kanbanRequests.partId}
+      ${kanbanRequests.partId},
+      ${kanbanRequests.requestedAt}
     `;
 
     if (!processFilter) {
@@ -89,6 +92,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .from(kanbanRequests)
         .leftJoin(stationParts, stationPartsJoinCondition)
         .leftJoin(parts, sql`${parts.id} = COALESCE(${stationParts.partId}, ${kanbanRequests.partId})`)
+        .leftJoin(delayKanbans, eq(delayKanbans.kanbanId, kanbanRequests.id))
         .where(baseWhereClause)
         .orderBy(orderByClause)
         .limit(limit)
@@ -113,6 +117,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .from(kanbanRequests)
         .leftJoin(stationParts, stationPartsJoinCondition)
         .leftJoin(parts, eq(parts.id, kanbanRequests.partId))
+        .leftJoin(delayKanbans, eq(delayKanbans.kanbanId, kanbanRequests.id))
         .where(and(baseWhereClause, isNull(stationParts.id)))
         .orderBy(orderByClause)
         .limit(limit)
@@ -143,6 +148,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .innerJoin(kanbanRequests, eq(frozenKanbans.kanbanId, kanbanRequests.id))
         .leftJoin(stationParts, stationPartsJoinCondition)
         .leftJoin(parts, eq(stationParts.partId, parts.id))
+        .leftJoin(delayKanbans, eq(delayKanbans.kanbanId, kanbanRequests.id))
         .where(and(eq(frozenKanbans.process, processFilter), eq(frozenKanbans.process, stationParts.process), baseWhereClause))
         .orderBy(orderByClause)
         .limit(limit)
@@ -154,6 +160,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .innerJoin(kanbanRequests, eq(frozenKanbans.kanbanId, kanbanRequests.id))
         .leftJoin(stationParts, stationPartsJoinCondition)
         .leftJoin(parts, eq(stationParts.partId, parts.id))
+        .leftJoin(delayKanbans, eq(delayKanbans.kanbanId, kanbanRequests.id))
         .where(and(eq(frozenKanbans.process, processFilter), eq(frozenKanbans.process, stationParts.process), baseWhereClause)))[0]?.total
 
       const totalPages = Math.ceil((total ?? 0) / limit);
@@ -166,6 +173,7 @@ preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         .from(kanbanRequests)
         .leftJoin(stationParts, stationPartsJoinCondition)
         .leftJoin(parts, eq(stationParts.partId, parts.id))
+        .leftJoin(delayKanbans, eq(delayKanbans.kanbanId, kanbanRequests.id))
         .where(and(baseWhereClause, eq(stationParts.process, processFilter)))
         .orderBy(orderByClause)
         .limit(limit)
@@ -224,10 +232,10 @@ preparationSheetRouter.put("/kanban", async (req, res): Promise<any> => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  // const isAuthorized = user.role === "admin" || user.role === "logistics";
-  // if (!isAuthorized) {
-  //   return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
-  // }
+  const isAuthorized = user.role === "admin" || user.role === "supplier";
+  if (!isAuthorized) {
+    return res.status(403).json({ error: "Forbidden: Only admins and supply can update kanbans" });
+  }
   
   const { kanbanIds } = req.body as KanbanModifyRequest;
   console.log("Received request to update kanban in prep list:", kanbanIds);
@@ -323,10 +331,10 @@ preparationSheetRouter.post("/kanbans/freeze", async (req, res): Promise<any> =>
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    // const isAuthorized = user.role === "admin" || user.role === "logistics";
-    // if (!isAuthorized) {
-    //   return res.status(403).json({ error: "Forbidden: Only admins and logistics can freeze kanbans" });
-    // }
+    const isAuthorized = user.role === "admin" || user.role === "supplier";
+    if (!isAuthorized) {
+      return res.status(403).json({ error: "Forbidden: Only admins and supply can freeze kanbans" });
+    }
 
     const { process } = req.body;
     if (!process) {
@@ -404,10 +412,10 @@ preparationSheetRouter.post("/kanbans/unfreeze", async (req, res): Promise<any> 
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    // const isAuthorized = user.role === "admin" || user.role === "logistics";
-    // if (!isAuthorized) {
-    //   return res.status(403).json({ error: "Forbidden: Only admins and logistics can unfreeze kanbans" });
-    // }
+    const isAuthorized = user.role === "admin" || user.role === "supplier";
+    if (!isAuthorized) {
+      return res.status(403).json({ error: "Forbidden: Only admins and supply can unfreeze kanbans" });
+    }
 
     const { process } = req.body;
     const plantId = user.plantId;
@@ -445,10 +453,10 @@ preparationSheetRouter.post("/kanbans/create", async (req, res): Promise<any> =>
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  // const isAdmin = user.role === "admin";
-  // if (!isAdmin) {
-  //   return res.status(403).json({ error: "Forbidden: Only admins can create kanbans" });
-  // }
+  const isAuthorized = user.role === "admin" || user.role === "supplier";
+  if (!isAuthorized) {
+    return res.status(403).json({ error: "Forbidden: Only admins and supply can create kanbans" });
+  }
 
   const plantId = user.plantId;
   const data:KanbanCreateRequest = req.body;
@@ -480,6 +488,40 @@ preparationSheetRouter.post("/kanbans/create", async (req, res): Promise<any> =>
     } 
   } catch (error) {
     console.error("Failed to create kanban:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+preparationSheetRouter.post("/kanban/report", async (req, res): Promise<any> => {
+  const user = req.session.user;
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const isAuthorized = user.role === "admin" || user.role === "supplier";
+  if (!isAuthorized) {
+    return res.status(403).json({ error: "Forbidden: Only admins and supply can report kanbans as delayed" });
+  }
+
+  const plantId = user.plantId;
+  const { kanbanIds } = req.body as KanbanModifyRequest;
+  try {    
+    if (kanbanIds?.length === 0) {
+      return res.status(400).json({ error: "At least one kanban ID is required" });
+    }
+
+    if (kanbanIds && kanbanIds.length > 0) {
+      // Create new kanban request
+      const newReport = await db.insert(delayKanbans).values(
+        kanbanIds.map((id) => ({
+          plantId: plantId,
+          kanbanId: Number(id),
+        }))).returning();
+
+      console.log(`Created delay report: ${JSON.stringify(newReport)}`);
+      return res.status(201).json({ message: "Reported successfully", report: newReport[0] });
+    }
+  } catch (error) {
+    console.error("Failed to report kanban:", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
 });

@@ -15,6 +15,8 @@ import { userAuthRouter } from "./routes/userAuth";
 import { kanbanRequestsLogRouter } from "./routes/kanbanRequestsLog";
 import { amruthUpdateRouter } from "./routes/amruthUpdate";
 import { uploadChunks } from "./routes/fileUpload";
+import { delayKanbans } from "./db/schema";
+import { delaySheetRouter } from "./routes/delaySheet";
 
 dotenv.config();
 
@@ -78,6 +80,7 @@ async function start() {
     // Protected routes
     app.use("/preparation-sheet", preparationSheetRouter);
     app.use("/supply-sheet", supplySheetRouter);
+    app.use("/delay-sheet", delaySheetRouter);
     app.use('/station-parts', stationPartsRouter);
     app.use('/product-entry-logs', productEntryLogsRouter);
     app.use('/product-variants', productVariantsRouter);

@@ -1,14 +1,13 @@
 import express from "express";
 import { db } from "../db/client";
-import { kanbanRequests, parts, stationParts } from "../db/schema";
+import { kanbanRequests, parts, stationParts, delayKanbans } from "../db/schema";
 import { eq, and, asc, count, sql, inArray, or, ilike, isNull } from "drizzle-orm";
 import { KanbanModifyRequest } from "../lib/types";
-import { deleteKanban } from "../lib/kanbanHelpers";
 
-export const supplySheetRouter = express.Router();
+export const delaySheetRouter = express.Router();
 
 
-supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
+delaySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
   try {
     const user = req.session.user;
     if (!user) {
@@ -26,9 +25,8 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     const offset = (page - 1) * limit;
 
     let whereClause = and(
-          eq(kanbanRequests.acknowledgedByLogistics, true),
-          eq(kanbanRequests.fulfilled, false),
-          eq(kanbanRequests.plantId, plantId!),
+          eq(delayKanbans.arrangedByLogistics, false),
+          eq(delayKanbans.plantId, plantId!),
         );
 
     const stationPartsJoinCondition = eq(kanbanRequests.stationPartsId, stationParts.id);
@@ -46,7 +44,8 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     // query for all unique processes
     const processes = await db
       .selectDistinct({ process: stationParts.process })
-      .from(kanbanRequests)
+      .from(delayKanbans)
+      .innerJoin(kanbanRequests, eq(delayKanbans.kanbanId, kanbanRequests.id))
       .leftJoin(stationParts, stationPartsJoinCondition)
       .leftJoin(parts, eq(stationParts.partId, parts.id))
       .where(whereClause)
@@ -55,7 +54,8 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
     const rankKanbans = await db
         .select({ total: count() })
-        .from(kanbanRequests)
+        .from(delayKanbans)
+        .innerJoin(kanbanRequests, eq(delayKanbans.kanbanId, kanbanRequests.id))
         .leftJoin(stationParts, stationPartsJoinCondition)
         .leftJoin(parts, eq(kanbanRequests.partId, parts.id))
         .where(and(whereClause, isNull(stationParts.id)));
@@ -78,15 +78,15 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
     if(!processFilter) {
     const kanbans = await db
       .select({
-        id: kanbanRequests.id,
+        id: delayKanbans.id,
         process: stationParts.process,
-        partId: kanbanRequests.partId,
         partIdNo: parts.partId,
         partName: parts.name,
-        supplyLocation: stationParts.supplyLocation,
-        acknowledgedAt: kanbanRequests.acknowledgedAt,
+        prepLocation: stationParts.prepLocation,
+        reportedAt: delayKanbans.reportedAt,
       })
-      .from(kanbanRequests)
+      .from(delayKanbans)
+      .innerJoin(kanbanRequests, eq(delayKanbans.kanbanId, kanbanRequests.id))
       .leftJoin(stationParts, stationPartsJoinCondition)
       .leftJoin(parts, sql`${parts.id} = COALESCE(${stationParts.partId}, ${kanbanRequests.partId})`)
       .where(whereClause)
@@ -96,7 +96,8 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
 
       const total = (await db
         .select({ total: count() })
-        .from(kanbanRequests)
+        .from(delayKanbans)
+        .innerJoin(kanbanRequests, eq(delayKanbans.kanbanId, kanbanRequests.id))
         .leftJoin(stationParts, stationPartsJoinCondition)
         .leftJoin(parts, sql`${parts.id} = COALESCE(${stationParts.partId}, ${kanbanRequests.partId})`)
         .where(whereClause))[0]?.total;
@@ -115,12 +116,12 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         partId: kanbanRequests.partId,
         partIdNo: parts.partId,
         partName: parts.name,
-        supplyLocation: stationParts.supplyLocation,
-        acknowledgedAt: kanbanRequests.acknowledgedAt,
+        reportedAt: delayKanbans.reportedAt,
       })
-        .from(kanbanRequests)
-        .leftJoin(stationParts, stationPartsJoinCondition)
+        .from(delayKanbans)
+        .innerJoin(kanbanRequests, eq(delayKanbans.kanbanId, kanbanRequests.id))
         .leftJoin(parts, eq(parts.id, kanbanRequests.partId))
+        .leftJoin(stationParts, stationPartsJoinCondition)
         .where(and(whereClause, isNull(stationParts.id)))
         .orderBy(orderByClause)
         .limit(limit)
@@ -133,18 +134,17 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
         
       return res.status(200).json({kanbans, processes:uniqueProcesses, isFrozenData: false, total, totalPages});
     } else {
-
       const kanbans = await db
       .select({
-        id: kanbanRequests.id,
+        id: delayKanbans.id,
         process: stationParts.process,
-        partId: kanbanRequests.partId,
         partIdNo: parts.partId,
         partName: parts.name,
-        supplyLocation: stationParts.supplyLocation,
-        acknowledgedAt: kanbanRequests.acknowledgedAt,
+        prepLocation: stationParts.prepLocation,
+        reportedAt: delayKanbans.reportedAt,
       })
-      .from(kanbanRequests)
+      .from(delayKanbans)
+      .innerJoin(kanbanRequests, eq(delayKanbans.kanbanId, kanbanRequests.id))
       .leftJoin(stationParts, stationPartsJoinCondition)
       .leftJoin(parts, eq(stationParts.partId, parts.id))
       .where(and(whereClause, eq(stationParts.process, processFilter)))
@@ -154,7 +154,8 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
 
       const total = (await db
         .select({ total: count() })
-        .from(kanbanRequests)
+        .from(delayKanbans)
+        .innerJoin(kanbanRequests, eq(delayKanbans.kanbanId, kanbanRequests.id))
         .leftJoin(stationParts, stationPartsJoinCondition)
         .leftJoin(parts, eq(stationParts.partId, parts.id))
         .where(and(whereClause, eq(stationParts.process, processFilter))))[0]?.total;
@@ -169,7 +170,7 @@ supplySheetRouter.get("/kanbans", async (req, res): Promise<any> => {
   }
 });
 
-supplySheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
+delaySheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
   try {
     const user = req.session.user;
     if (!user) {
@@ -178,11 +179,10 @@ supplySheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
     const process = req.query?.process ? String(req.query.process) : null;    
     const plantId = user.plantId;
     const baseWhereClause = and(
-      eq(kanbanRequests.acknowledgedByLogistics, true),
-      eq(kanbanRequests.fulfilled, false)
+      eq(delayKanbans.arrangedByLogistics,false),
     );
     const processWhereClause = process ? eq(stationParts.process, process) : sql`1=1`;
-    const plantWhereClause = eq(kanbanRequests.plantId, plantId);
+    const plantWhereClause = eq(delayKanbans.plantId, plantId);
     const whereClause = and(
       baseWhereClause,
       processWhereClause,
@@ -192,7 +192,8 @@ supplySheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
 
     const result = await db
       .select({ total: count() })
-      .from(kanbanRequests)
+      .from(delayKanbans)
+      .innerJoin(kanbanRequests, eq(delayKanbans.kanbanId, kanbanRequests.id))
       .leftJoin(stationParts, stationPartsJoinCondition)
       .where(whereClause);
 
@@ -203,31 +204,31 @@ supplySheetRouter.get("/kanbans/count", async (req, res): Promise<any> => {
   }
 });
 
-supplySheetRouter.put("/kanban", async (req, res): Promise<any> => {
+delaySheetRouter.put("/kanban", async (req, res): Promise<any> => {
   const user = req.session.user;
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const isAuthorized = user.role === "admin" || user.role === "supplier";
+  const isAuthorized = user.role === "admin" || user.role === "gd_logistics" || user.role === "tnga_logistics";
   if (!isAuthorized) {
-    return res.status(403).json({ error: "Forbidden: Only admins and suppliers can update kanbans" });
+    return res.status(403).json({ error: "Forbidden: Only admins and logistics can update kanbans" });
   }
   
   const { kanbanIds } = req.body as KanbanModifyRequest;
-  console.log("Received request to update kanban in supply list:", kanbanIds);
+  console.log("Received request to update kanban in delay list:", kanbanIds);
 
   if (!Array.isArray(kanbanIds) || kanbanIds.length === 0) {
     return res.status(400).json({ error: "kanbanIds array is required" });
   }
 
   try {
-    const fulfilled = true;
-    const fulfilledAt = new Date();
+    const arranged_by_logistics = true;
+    const arrangedAt = new Date();
 
     const result = await db
-      .update(kanbanRequests)
-      .set({ fulfilled, fulfilledAt })
-      .where(inArray(kanbanRequests.id, kanbanIds))
+      .update(delayKanbans)
+      .set({ arrangedByLogistics: arranged_by_logistics, arrangedAt })
+      .where(inArray(delayKanbans.id, kanbanIds))
       .returning();
 
     if (result.length === 0) {
@@ -241,36 +242,37 @@ supplySheetRouter.put("/kanban", async (req, res): Promise<any> => {
   }
 });
 
-supplySheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
+delaySheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
   const user = req.session.user;
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const isAuthorized = user.role === "admin" || user.role === "supplier";
+  const isAuthorized = user.role === "admin" 
   if (!isAuthorized) {
-    return res.status(403).json({ error: "Forbidden: Only admins and suppliers can update kanbans" });
+    return res.status(403).json({ error: "Forbidden: Only admins can update bulk kanbans" });
   }
   
   const { process } = req.query;
-  console.log(`Received request to update all kanban in supply list ${process && `for process: ${process}`}`);
+  console.log(`Received request to update all kanban in delay list ${process && `for process: ${process}`}`);
   
   try {
     const plantId = user.plantId;
-    const fulfilled = true;
-    const fulfilledAt = new Date();
+    const arrangedByLogistics = true;
+    const arrangedAt = new Date();
     const whereClause = and(
-          eq(kanbanRequests.acknowledgedByLogistics, true),
-          eq(kanbanRequests.plantId, plantId),
+          eq(delayKanbans.arrangedByLogistics, false),
+          eq(delayKanbans.plantId, plantId),
           process ? eq(stationParts.process, String(process)) : sql`1=1`
         );
     const stationPartsJoinCondition = eq(kanbanRequests.stationPartsId, stationParts.id);
 
     const kanbansToUpdate = await db
-    .select({ id: kanbanRequests.id })
-    .from(kanbanRequests)
+    .select({ id: delayKanbans.id })
+    .from(delayKanbans)
+    .leftJoin(kanbanRequests, eq(delayKanbans.kanbanId, kanbanRequests.id))
     .leftJoin(stationParts, stationPartsJoinCondition)
     .where(whereClause)
-    .orderBy(asc(kanbanRequests.requestedAt));
+    .orderBy(asc(delayKanbans.reportedAt));
 
     if (kanbansToUpdate.length === 0) {
       console.log("Kanban not found");
@@ -278,9 +280,9 @@ supplySheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
     }
 
     const result = await db
-    .update(kanbanRequests)
-    .set({ fulfilled, fulfilledAt })
-    .where(inArray(kanbanRequests.id, kanbansToUpdate.map(k => k.id)))
+    .update(delayKanbans)
+    .set({ arrangedByLogistics, arrangedAt })
+    .where(inArray(delayKanbans.id, kanbansToUpdate.map(k => k.id)))
     .returning();
 
     if (result.length === 0) {
@@ -288,14 +290,43 @@ supplySheetRouter.put("/kanban/all", async (req, res): Promise<any> => {
       return res.status(404).json({ message: "Kanban not found" });
     }
 
-    console.log("Supply Kanbans updated successfully:", result); 
-    return res.status(200).json({ message: "Kanban updated successfully", updatedKanbans: result });
+    console.log("Delay Kanbans updated successfully:", result); 
+    return res.status(200).json({ message: "Delay Kanban updated successfully", updatedKanbans: result });
   } catch (error: any) {
     console.log("Error updating kanban:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
-supplySheetRouter.delete("/kanban", (req, res) => {
-  deleteKanban(req, res);
+delaySheetRouter.delete("/kanban", async (req, res): Promise<any> => {
+  const user = req.session.user;
+  if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+  }
+  const isAuthorized = user.role === "admin" || user.role === "supplier";
+  if (!isAuthorized) {
+    return res.status(403).json({ error: "Forbidden: Only admin and supplier can delete delay reports" });
+  }
+
+  const { kanbanIds } = req.body as KanbanModifyRequest;
+
+  if (!Array.isArray(kanbanIds) || kanbanIds.length === 0 || kanbanIds.some(id => isNaN(Number(id)))) {
+      return res.status(400).json({ error: 'kanbanIds (array of numbers) is required' });
+  }
+
+  try {
+      const deleted = await db
+      .delete(delayKanbans)
+      .where(inArray(delayKanbans.id, kanbanIds))
+      .returning();
+
+      if (deleted.length === 0) {
+          return res.status(404).json({ message: "Kanban not found" });
+      }
+
+      return res.status(200).json({ message: "Report deleted successfully" });
+  } catch (error: any) {
+      console.error("Error deleting report:", error);
+      return res.status(500).json({ error: error.message || "Internal server error" });
+  }
 });

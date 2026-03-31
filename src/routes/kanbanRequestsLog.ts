@@ -67,7 +67,6 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
       .leftJoin(stationParts,  eq(kanbanRequests.stationPartsId, stationParts.id))
       .leftJoin(parts, sql`${parts.id} = COALESCE(${stationParts.partId}, ${kanbanRequests.partId})`)
       .leftJoin(stations, eq(stationParts.stationId, stations.id))
-      .leftJoin(products, eq(kanbanRequests.productId, products.id))
       .where(whereClause)
       .orderBy(desc(kanbanRequests.requestedAt))
       .limit(limit)
@@ -82,7 +81,6 @@ kanbanRequestsLogRouter.get("/", async (req: Request, res: Response): Promise<an
       .where(whereClause);
 
     const totalPages = Math.ceil((totalLogs[0]?.total ?? 0) / limit);
-    console.log('total pages: ', totalPages);
     
     return res.json({logs, totalPages});
   } catch (error) {
