@@ -31,7 +31,7 @@ async function processEntries(sorted: ProductEntry[], plantId: number, settingKe
   }
 }
 
-async function pollEntries() {
+export async function pollEntries() {
   const gdPlantId = 1;
   const tngaPlantId = 2;
   try {

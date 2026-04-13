@@ -22,10 +22,12 @@ export async function listCsvEntriesSinceTimestamp(
   const resultTNGA: Array<ProductEntry> = [];
 
   const dir = await fs.opendir(folderPath);
+
   try {
     for await (const dirent of dir) {
       if (!dirent.isFile()) continue;
       const f = dirent.name;
+
       if (!f.toLowerCase().endsWith('.csv')) continue;
       const fp = path.join(folderPath, f);
 
@@ -35,6 +37,7 @@ export async function listCsvEntriesSinceTimestamp(
         if (stats.mtime <= lastProcessedDateGD && stats.mtime <= lastProcessedDateTNGA) {
           continue;
         }
+        console.log(f);
 
         const content = await fs.readFile(fp, 'utf-8');
         const records = csv.parse(content, { columns: true, skip_empty_lines: true }) as PartScanCSVFormat[];

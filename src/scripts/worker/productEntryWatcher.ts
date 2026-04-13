@@ -4,6 +4,7 @@ import { handleProductShift } from '../../lib/productEntryHelper';
 import { getSetting, setSetting } from '../../lib/settingsService';
 import { handleProductShiftTNGA } from '../../lib/productEntryHelperTNGA';
 import { listCsvEntriesSinceTimestamp } from '../fileWatcher';
+import { pollEntries } from './productEntryWorker';
 
 dotenv.config();
 
@@ -82,6 +83,14 @@ async function main() {
         () => listCsvEntriesSinceTimestamp(WATCH_FOLDER, lastDateGD, lastDateTNGA),
         `CSV watch folder (${WATCH_FOLDER})`
       );
+
+      // If folder is empty, fallback to polling from API
+      if (newGD.length === 0 && newTNGA.length === 0) {
+        console.log('📭 No CSV entries found in folder, falling back to API polling...');
+        await pollEntries();
+        await sleep(pollIntervalMs);
+        continue;
+      }
 
       const gdItems = newGD
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());

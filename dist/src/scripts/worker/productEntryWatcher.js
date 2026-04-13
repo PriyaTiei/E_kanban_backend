@@ -17,6 +17,7 @@ const productEntryHelper_1 = require("../../lib/productEntryHelper");
 const settingsService_1 = require("../../lib/settingsService");
 const productEntryHelperTNGA_1 = require("../../lib/productEntryHelperTNGA");
 const fileWatcher_1 = require("../fileWatcher");
+const productEntryWorker_1 = require("./productEntryWorker");
 dotenv_1.default.config();
 const WATCH_FOLDER = process.env.CSV_WATCH_FOLDER || '/mnt/network_share';
 const SETTING_KEY_GD = "last_processed_timestamp";
@@ -85,6 +86,13 @@ function main() {
                 console.log(`🔍 Scanning for files modified after ${lastDateGD}`);
                 // Retry scanning until the network share/mount is available instead of letting the process crash
                 const [newGD, newTNGA] = yield retryUntilAvailable(() => (0, fileWatcher_1.listCsvEntriesSinceTimestamp)(WATCH_FOLDER, lastDateGD, lastDateTNGA), `CSV watch folder (${WATCH_FOLDER})`);
+                // If folder is empty, fallback to polling from API
+                if (newGD.length === 0 && newTNGA.length === 0) {
+                    console.log('📭 No CSV entries found in folder, falling back to API polling...');
+                    yield (0, productEntryWorker_1.pollEntries)();
+                    yield sleep(pollIntervalMs);
+                    continue;
+                }
                 const gdItems = newGD
                     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                 if (gdItems.length > 0) {
