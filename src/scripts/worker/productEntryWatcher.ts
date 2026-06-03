@@ -84,13 +84,13 @@ async function main() {
         `CSV watch folder (${WATCH_FOLDER})`
       );
 
-      // If folder is empty, fallback to polling from API
-      if (newGD.length === 0 && newTNGA.length === 0) {
-        console.log('📭 No CSV entries found in folder, falling back to API polling...');
-        await pollEntries();
-        await sleep(pollIntervalMs);
-        continue;
-      }
+      // // If folder is empty, fallback to polling from API
+      // if (newGD.length === 0 && newTNGA.length === 0) {
+      //   console.log('📭 No CSV entries found in folder, falling back to API polling...');
+      //   await pollEntries();
+      //   await sleep(pollIntervalMs);
+      //   continue;
+      // }
 
       const gdItems = newGD
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());

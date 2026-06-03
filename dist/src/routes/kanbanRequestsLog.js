@@ -34,7 +34,8 @@ exports.kanbanRequestsLogRouter.get("/", (req, res) => __awaiter(void 0, void 0,
         const status = req.query.status ? String(req.query.status) : null;
         const dateTime = req.query.dateTime ? String(req.query.dateTime) : null;
         const searchFilter = req.query.search ? String(req.query.search) : null;
-        console.log("status filter: ", status, "\ndateTime filter: ", dateTime, "\nsearch filter: ", searchFilter);
+        const processFilter = req.query.process ? String(req.query.process) : null;
+        console.log("processFilter: ", processFilter);
         let whereClause = (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.plantId, plantId);
         if (status === "requested") {
             whereClause = (0, drizzle_orm_1.sql) `${whereClause} AND ${schema_1.kanbanRequests.acknowledgedByLogistics} = false AND ${schema_1.kanbanRequests.fulfilled} = false`;
@@ -44,6 +45,9 @@ exports.kanbanRequestsLogRouter.get("/", (req, res) => __awaiter(void 0, void 0,
         }
         else if (status === "fulfilled") {
             whereClause = (0, drizzle_orm_1.sql) `${whereClause} AND ${schema_1.kanbanRequests.fulfilled} = true`;
+        }
+        if (processFilter) {
+            whereClause = (0, drizzle_orm_1.sql) `${whereClause} AND ${schema_1.stationParts.process} = ${processFilter}`;
         }
         if (dateTime) {
             whereClause = (0, drizzle_orm_1.and)(whereClause, (0, drizzle_orm_1.lte)(schema_1.kanbanRequests.requestedAt, new Date(dateTime)));
@@ -59,6 +63,7 @@ exports.kanbanRequestsLogRouter.get("/", (req, res) => __awaiter(void 0, void 0,
             stationName: schema_1.stations.name,
             partIdNo: schema_1.parts.partId,
             partName: schema_1.parts.name,
+            process: schema_1.stationParts.process,
             requestedAt: schema_1.kanbanRequests.requestedAt,
             acknowledgedByLogistics: schema_1.kanbanRequests.acknowledgedByLogistics,
             acknowledgedAt: schema_1.kanbanRequests.acknowledgedAt,
@@ -88,4 +93,25 @@ exports.kanbanRequestsLogRouter.get("/", (req, res) => __awaiter(void 0, void 0,
         console.error("Error fetching kanban requests log:", error);
         return res.status(500).json({ error: "Internal server error" });
     }
+}));
+exports.kanbanRequestsLogRouter.get("/processes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    // query for all unique processes
+    const processes = yield client_1.db
+        .selectDistinct({ process: schema_1.stationParts.process })
+        .from(schema_1.kanbanRequests)
+        .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationPartsId, schema_1.stationParts.id))
+        .leftJoin(schema_1.parts, (0, drizzle_orm_1.sql) `${schema_1.parts.id} = COALESCE(${schema_1.stationParts.partId}, ${schema_1.kanbanRequests.partId})`)
+        .orderBy((0, drizzle_orm_1.asc)(schema_1.stationParts.process));
+    const uniqueProcesses = processes.map(row => row.process).filter(p => p !== null);
+    const rankKanbans = yield client_1.db
+        .select({ total: (0, drizzle_orm_1.count)() })
+        .from(schema_1.kanbanRequests)
+        .leftJoin(schema_1.stationParts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.stationPartsId, schema_1.stationParts.id))
+        .leftJoin(schema_1.parts, (0, drizzle_orm_1.eq)(schema_1.kanbanRequests.partId, schema_1.parts.id))
+        .where((0, drizzle_orm_1.isNull)(schema_1.stationParts.id));
+    if (((_a = rankKanbans[0]) === null || _a === void 0 ? void 0 : _a.total) > 0) {
+        uniqueProcesses.push('rank parts');
+    }
+    return res.json(uniqueProcesses);
 }));
