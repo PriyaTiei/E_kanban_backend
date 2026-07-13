@@ -11,3 +11,5 @@ export/
 
 server.cert
 server.key
+
+*.py

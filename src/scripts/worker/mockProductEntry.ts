@@ -3,7 +3,7 @@ import { ProductEntry } from '../../lib/types';
 import { handleProductShift } from '../../lib/productEntryHelper';
 import { getSetting, setSetting } from '../../lib/settingsService';
 import { handleProductShiftTNGA } from '../../lib/productEntryHelperTNGA';
-import { listCsvEntriesSinceTimestamp } from '../fileWatcher';
+import { listGDCsvEntriesSinceTimestamp } from '../fileWatcher';
 
 dotenv.config();
 

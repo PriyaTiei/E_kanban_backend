@@ -13,61 +13,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
-const productEntryHelper_1 = require("../../lib/productEntryHelper");
 const settingsService_1 = require("../../lib/settingsService");
-const productEntryHelperTNGA_1 = require("../../lib/productEntryHelperTNGA");
 const fileWatcher_1 = require("../fileWatcher");
+const watcherHelper_1 = require("../../lib/watcherHelper");
 dotenv_1.default.config();
 const WATCH_FOLDER = process.env.CSV_WATCH_FOLDER || '/mnt/network_share';
 const SETTING_KEY_GD = "last_processed_timestamp";
 const SETTING_KEY_TNGA = "last_processed_timestamp_tnga";
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-function isTransientErr(err) {
-    if (!err || !err.code)
-        return false;
-    const transient = ['EHOSTDOWN', 'ENOTCONN', 'ENODEV', 'ENOENT', 'EIO', 'ETIMEDOUT', 'EACCES', 'EPERM'];
-    return transient.includes(err.code);
-}
-/**
- * Retry an async operation until it succeeds or a non-transient error is thrown.
- * Uses incremental backoff.
- */
-function retryUntilAvailable(fn_1) {
-    return __awaiter(this, arguments, void 0, function* (fn, description = 'resource') {
-        let attempt = 0;
-        while (true) {
-            try {
-                return yield fn();
-            }
-            catch (err) {
-                if (!isTransientErr(err)) {
-                    // Non-transient: rethrow so caller can decide
-                    throw err;
-                }
-                attempt++;
-                const delay = Math.min(30000, 2000 + attempt * 2000); // grow to max 30s
-                console.warn(`⚠️ ${description} unavailable (${err.code}) at ${new Date()}. Retrying in ${Math.round(delay / 1000)}s...`);
-                yield sleep(delay);
-            }
-        }
-    });
-}
-function processEntries(sorted, plantId, settingKey) {
-    return __awaiter(this, void 0, void 0, function* () {
-        for (const entry of sorted) {
-            console.log(`⚙️ Processing ${entry.id_number} at ${entry.created_at} for plantId ${plantId}`);
-            plantId === 1
-                ? yield (0, productEntryHelper_1.handleProductShift)(entry.id_number, plantId)
-                : yield (0, productEntryHelperTNGA_1.handleProductShiftTNGA)(entry.id_number, plantId);
-        }
-        if (sorted.length > 0) {
-            const lastEntry = sorted[sorted.length - 1];
-            yield (0, settingsService_1.setSetting)(settingKey, String(new Date(new Date(lastEntry.created_at).getTime() + 1000)));
-        }
-    });
-}
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const gdPlantId = 1;
@@ -84,7 +36,7 @@ function main() {
                 // 1) Scan files by modification time (skip already processed files by mtime)
                 console.log(`🔍 Scanning for files modified after ${lastDateGD}`);
                 // Retry scanning until the network share/mount is available instead of letting the process crash
-                const [newGD, newTNGA] = yield retryUntilAvailable(() => (0, fileWatcher_1.listCsvEntriesSinceTimestamp)(WATCH_FOLDER, lastDateGD, lastDateTNGA), `CSV watch folder (${WATCH_FOLDER})`);
+                const [newGD, newTNGA] = yield (0, watcherHelper_1.retryUntilAvailable)(() => (0, fileWatcher_1.listCsvEntriesSinceTimestamp)(WATCH_FOLDER, lastDateGD, lastDateTNGA), `CSV watch folder (${WATCH_FOLDER})`);
                 // // If folder is empty, fallback to polling from API
                 // if (newGD.length === 0 && newTNGA.length === 0) {
                 //   console.log('📭 No CSV entries found in folder, falling back to API polling...');
@@ -96,19 +48,19 @@ function main() {
                     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                 if (gdItems.length > 0) {
                     console.log(`📦 Found ${gdItems.length} GD entries`);
-                    yield processEntries(gdItems, gdPlantId, SETTING_KEY_GD);
+                    yield (0, watcherHelper_1.processEntries)(gdItems, gdPlantId, SETTING_KEY_GD);
                 }
                 const tngaItems = newTNGA
                     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                 if (tngaItems.length > 0) {
                     console.log(`📦 Found ${tngaItems.length} TNGA entries`);
-                    yield processEntries(tngaItems, tngaPlantId, SETTING_KEY_TNGA);
+                    yield (0, watcherHelper_1.processEntries)(tngaItems, tngaPlantId, SETTING_KEY_TNGA);
                 }
-                yield sleep(pollIntervalMs);
+                yield (0, watcherHelper_1.sleep)(pollIntervalMs);
             }
             catch (err) {
                 console.error('Unexpected error in polling loop:', err);
-                yield sleep(pollIntervalMs);
+                yield (0, watcherHelper_1.sleep)(pollIntervalMs);
             }
         }
     });

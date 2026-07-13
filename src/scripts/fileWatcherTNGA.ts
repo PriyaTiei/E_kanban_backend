@@ -13,11 +13,11 @@ interface ProductEntry {
  * Returns entries that were modified after lastProcessedDate.
  * More efficient than reading all 200k files into memory.
  */
-export async function listGDCsvEntriesSinceTimestamp(
+export async function listTNGACsvEntriesSinceTimestamp(
   folderPath: string,
-  lastProcessedDateGD: Date,
+  lastProcessedDateTNGA: Date
 ) {
-  const resultGD: Array<ProductEntry> = [];
+  const resultTNGA: Array<ProductEntry> = [];
 
   const dir = await fs.opendir(folderPath);
 
@@ -32,7 +32,7 @@ export async function listGDCsvEntriesSinceTimestamp(
       try {
         const stats = await fs.stat(fp);
         // skip files not modified after either timestamp
-        if (stats.mtime <= lastProcessedDateGD) {
+        if (stats.mtime <= lastProcessedDateTNGA) {
           continue;
         }
 
@@ -43,7 +43,7 @@ export async function listGDCsvEntriesSinceTimestamp(
           const sequenceData = String(record['SEQUENCE DATA'] ?? "").trim();
           if (!sequenceData) continue;
 
-          const match = sequenceData.match(/(GD)(.{3})/);
+          const match = sequenceData.match(/(TNGA)(.{3})/);
           if (!match) continue;
 
           const plant = match[1];
@@ -59,9 +59,9 @@ export async function listGDCsvEntriesSinceTimestamp(
           const created_at = new Date(`${year}-${month}-${day}T${time}:00`).toISOString();
           if (isNaN(new Date(created_at).getTime())) continue;
 
-          if (plant === 'GD' && new Date(created_at) > lastProcessedDateGD) {
-            resultGD.push({ id_number, created_at });
-          }
+          if (plant === 'TNGA' && new Date(created_at) > lastProcessedDateTNGA) {
+            resultTNGA.push({ id_number, created_at });
+          } 
         }
       } catch (err) {
         console.error(`Failed to process CSV ${fp}:`, err);
@@ -70,5 +70,5 @@ export async function listGDCsvEntriesSinceTimestamp(
   } catch (err) {
     console.error("Err: ", err);
   } 
-  return [resultGD];
+  return [resultTNGA];
 }

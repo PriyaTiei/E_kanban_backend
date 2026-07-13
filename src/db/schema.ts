@@ -43,9 +43,11 @@ export const stationParts = pgTable("station_parts", {
   supplyLocation: varchar("supply-location", { length: 50 }),
   consumptionPerProduct: integer("consumption_per_product").notNull(),
   binQuantity: integer("bin_quantity").notNull(),
+  //TODO: Shift these to another table
   currentQuantity: integer("current_quantity").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   updatedBy: integer("updated_by").references(() => users.id, { onDelete: "cascade" }),
+  //-------------------
 });
 
 export const productPartExceptions = pgTable("product_part_exceptions", {
@@ -77,12 +79,12 @@ export const kanbanRequests = pgTable("kanban_requests", {
   plantId: integer("plant_id").references(() => plants.id, { onDelete: "cascade" }).notNull().default(1),
   stationPartsId: integer("station_parts_id").references(() => stationParts.id, { onDelete: "cascade" }),
   partId: integer("part_id").references(() => parts.id, { onDelete: "cascade" }),
-  // TODO: Remove these columns after old kanbans are cleared.
+  // TODO: Remove these columns once all the rows have NULL in these columns.
   stationId: integer("station_id").references(() => stations.id, { onDelete: "cascade" }),
   process: varchar("process", { length: 20 }),
   supplyLocation: varchar("supply-location", { length: 50 }),
-  // ----------
   productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }),
+  // ----------
   requestedAt: timestamp("requested_at", { withTimezone: true }).defaultNow().notNull(),
   acknowledgedByLogistics: boolean("acknowledged_by_logistics").default(false).notNull(),
   acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),

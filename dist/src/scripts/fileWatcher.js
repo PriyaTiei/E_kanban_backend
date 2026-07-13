@@ -20,9 +20,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.listCsvEntriesSinceTimestamp = listCsvEntriesSinceTimestamp;
+const dotenv_1 = __importDefault(require("dotenv"));
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const sync_1 = __importDefault(require("csv-parse/sync"));
+dotenv_1.default.config();
 /**
  * Scan existing CSV files in the folder by checking file modification time.
  * Returns entries that were modified after lastProcessedDate.
@@ -34,6 +36,7 @@ function listCsvEntriesSinceTimestamp(folderPath, lastProcessedDateGD, lastProce
         var _d, _e, _f;
         const resultGD = [];
         const resultTNGA = [];
+        const pollIntervalMs = Number(process.env.POLL_INTERVAL_MS || 5000);
         const dir = yield promises_1.default.opendir(folderPath);
         try {
             try {
