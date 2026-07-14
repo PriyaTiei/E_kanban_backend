@@ -23,7 +23,7 @@ stationPartsRouter.get('/', async (req, res): Promise<any> => {
         partId: stationParts.partId,
         partIdNo: parts.partId,
         partName: parts.name,
-        allowed_for_all_products: stationParts.allowed_for_all_products,
+        // allowed_for_all_products: stationParts.allowed_for_all_products,
         process:stationParts.process,
         prepLocation: stationParts.prepLocation,
         supplyLoaction: stationParts.supplyLocation,

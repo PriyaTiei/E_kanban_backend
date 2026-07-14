@@ -54,7 +54,6 @@ async function seed() {
   //       supplyLocation: row.supplyLocation || null,
   //       process: row.process || null,
   //       prepLocation: row.prepLocation || null,
-  //       allowedForAllProducts: row.allowed_for_all_products || false,
   // })}));
 
 //   const productPartExceptionsRows = parseSheet("productPartExceptions");

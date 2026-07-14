@@ -179,14 +179,14 @@ export async function handleProductShiftTNGA(variant: string, plantId:number, re
         .where(
           and(
             eq(stationParts.stationId, log.stationId),
-            or(
-              eq(stationParts.allowed_for_all_products, true),
+            // or(
+              // eq(stationParts.allowed_for_all_products, true),
               sql`EXISTS (
                 SELECT 1 FROM product_part_exceptions
                 WHERE product_part_exceptions.product_id = ${log.productId}
                 AND product_part_exceptions.part_id = station_parts.part_id
               )`
-            )
+            // )
           )
         );
 

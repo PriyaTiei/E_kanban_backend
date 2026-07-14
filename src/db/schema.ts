@@ -37,7 +37,9 @@ export const stationParts = pgTable("station_parts", {
   plantId: integer("plant_id").references(() => plants.id, { onDelete: "cascade" }).notNull().default(1),
   stationId: integer("station_id").references(() => stations.id, { onDelete: "cascade" }).notNull(),
   partId: integer("part_id").references(() => parts.id, { onDelete: "cascade" }).notNull(),
+  //TODO: Remove this column after updating productPartExceptions with all parts
   allowed_for_all_products: boolean("allowed_for_all_products").default(true).notNull(),
+  //---------
   process: varchar("process", { length: 20 }),
   prepLocation: varchar("prep-location", { length: 50 }),
   supplyLocation: varchar("supply-location", { length: 50 }),
