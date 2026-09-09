@@ -3,8 +3,9 @@ import { db } from "../db/client";
 import { parts, productPartExceptions, products, stationParts, stations } from "../db/schema";
 import { lookupCache } from "../lib/lookupCache";
 import { eq } from "drizzle-orm";
+import path from "path";
 
-const workbook = XLSX.readFile("/home/tnga_iot/shiva/E_kanban_GD/E_kanban_backend/src/data/seedData.xlsx");
+const workbook = XLSX.readFile(path.join(__dirname, "../data/seedData.xlsx"));
 
 type SheetRow = Record<string, any>;
 

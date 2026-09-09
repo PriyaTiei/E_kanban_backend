@@ -55,7 +55,7 @@ export interface suppliedKanban {
   CREATED_SYS_DATE: string
 }
 
-export type txType = PgTransaction<any, typeof import("/home/tnga_iot/shiva/E_kanban_GD/E_kanban_backend/src/db/schema"), any>
+export type txType = PgTransaction<any, typeof import("../db/schema"), any>
 
 export interface PartScanCSVFormat {
   'SEQUENCE DATA': string,
