@@ -88,9 +88,10 @@ export async function pollEntries() {
   }
 }
 
-// async function main() {
-//   setInterval(pollEntries, POLL_INTERVAL_MS);
-//   console.log("📡 Polling worker started...");
-// }
+async function main() {
+  setInterval(pollEntries, POLL_INTERVAL_MS);
+  console.log("📡 Polling worker started...");
+}
 
-// main();
+main();
+

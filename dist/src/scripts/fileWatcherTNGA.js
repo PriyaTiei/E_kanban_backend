@@ -19,7 +19,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.listGDCsvEntriesSinceTimestamp = listGDCsvEntriesSinceTimestamp;
+exports.listTNGACsvEntriesSinceTimestamp = listTNGACsvEntriesSinceTimestamp;
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const sync_1 = __importDefault(require("csv-parse/sync"));
@@ -28,11 +28,11 @@ const sync_1 = __importDefault(require("csv-parse/sync"));
  * Returns entries that were modified after lastProcessedDate.
  * More efficient than reading all 200k files into memory.
  */
-function listGDCsvEntriesSinceTimestamp(folderPath, lastProcessedDateGD) {
+function listTNGACsvEntriesSinceTimestamp(folderPath, lastProcessedDateTNGA) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, e_1, _b, _c;
         var _d, _e, _f;
-        const resultGD = [];
+        const resultTNGA = [];
         const dir = yield promises_1.default.opendir(folderPath);
         try {
             try {
@@ -49,7 +49,7 @@ function listGDCsvEntriesSinceTimestamp(folderPath, lastProcessedDateGD) {
                     try {
                         const stats = yield promises_1.default.stat(fp);
                         // skip files not modified after either timestamp
-                        if (stats.mtime <= lastProcessedDateGD) {
+                        if (stats.mtime <= lastProcessedDateTNGA) {
                             continue;
                         }
                         const content = yield promises_1.default.readFile(fp, 'utf-8');
@@ -58,7 +58,7 @@ function listGDCsvEntriesSinceTimestamp(folderPath, lastProcessedDateGD) {
                             const sequenceData = String((_d = record['SEQUENCE DATA']) !== null && _d !== void 0 ? _d : "").trim();
                             if (!sequenceData)
                                 continue;
-                            const match = sequenceData.match(/(GD)(.{3})/);
+                            const match = sequenceData.match(/(TNGA)(.{3})/);
                             if (!match)
                                 continue;
                             const plant = match[1];
@@ -75,8 +75,8 @@ function listGDCsvEntriesSinceTimestamp(folderPath, lastProcessedDateGD) {
                             const created_at = new Date(`${year}-${month}-${day}T${time}:00`).toISOString();
                             if (isNaN(new Date(created_at).getTime()))
                                 continue;
-                            if (plant === 'GD' && new Date(created_at) > lastProcessedDateGD) {
-                                resultGD.push({ id_number, created_at });
+                            if (plant === 'TNGA' && new Date(created_at) > lastProcessedDateTNGA) {
+                                resultTNGA.push({ id_number, created_at });
                             }
                         }
                     }
@@ -96,6 +96,6 @@ function listGDCsvEntriesSinceTimestamp(folderPath, lastProcessedDateGD) {
         catch (err) {
             console.error("Err: ", err);
         }
-        return [resultGD];
+        return [resultTNGA];
     });
 }

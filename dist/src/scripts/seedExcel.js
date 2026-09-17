@@ -41,12 +41,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const XLSX = __importStar(require("xlsx"));
 const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
 const drizzle_orm_1 = require("drizzle-orm");
-const workbook = XLSX.readFile("/home/tnga_iot/shiva/E_kanban_GD/E_kanban_backend/src/data/seedData.xlsx");
+const path_1 = __importDefault(require("path"));
+const workbook = XLSX.readFile(path_1.default.join(__dirname, "../data/seedData.xlsx"));
 function parseSheet(sheetName) {
     const sheet = workbook.Sheets[sheetName];
     return XLSX.utils.sheet_to_json(sheet);
@@ -87,7 +91,6 @@ function seed() {
         //       supplyLocation: row.supplyLocation || null,
         //       process: row.process || null,
         //       prepLocation: row.prepLocation || null,
-        //       allowedForAllProducts: row.allowed_for_all_products || false,
         // })}));
         //   const productPartExceptionsRows = parseSheet("productPartExceptions");
         //   await db.insert(productPartExceptions).values(

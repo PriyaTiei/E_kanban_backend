@@ -14,29 +14,29 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
 const settingsService_1 = require("../../lib/settingsService");
-const fileWatcher_1 = require("../fileWatcher");
 const watcherHelper_1 = require("../../lib/watcherHelper");
+const fileWatcherTNGA_1 = require("../fileWatcherTNGA");
 dotenv_1.default.config();
-const WATCH_FOLDER_GD = process.env.CSV_WATCH_FOLDER_GD || '/mnt/network_share';
-const SETTING_KEY_GD = "last_processed_timestamp";
+const WATCH_FOLDER_TNGA = process.env.CSV_WATCH_FOLDER_TNGA || '/mnt/network_share2';
+const SETTING_KEY_TNGA = "last_processed_timestamp_tnga";
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
-        const gdPlantId = 1;
+        const tngaPlantId = 2;
         const pollIntervalMs = Number(process.env.POLL_INTERVAL_MS || 5000);
         console.log("📡 File watcher started...");
         while (true) {
             try {
                 // Load last processed timestamps first
-                const lastProcessed = yield (0, settingsService_1.getSetting)(SETTING_KEY_GD);
-                const lastDateGD = lastProcessed ? new Date(lastProcessed) : new Date(0);
+                const lastProcessedTNGA = yield (0, settingsService_1.getSetting)(SETTING_KEY_TNGA);
+                const lastDateTNGA = lastProcessedTNGA ? new Date(lastProcessedTNGA) : new Date(0);
                 // Scan files by modification time (skip already processed files by mtime)
-                console.log(`🔍 [GD] Scanning for files modified after ${lastDateGD}`);
+                console.log(`🔍 [TNGA] Scanning for files modified after ${lastDateTNGA}`);
                 // Retry scanning until the network share/mount is available instead of letting the process crash
-                const [newGD, _] = yield (0, watcherHelper_1.retryUntilAvailable)(() => (0, fileWatcher_1.listGDCsvEntriesSinceTimestamp)(WATCH_FOLDER_GD, lastDateGD), `CSV watch folder (${WATCH_FOLDER_GD})`);
-                const gdItems = newGD.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-                if (gdItems.length > 0) {
-                    console.log(`📦 Found ${gdItems.length} GD entries`);
-                    yield (0, watcherHelper_1.processEntries)(gdItems, gdPlantId, SETTING_KEY_GD);
+                const [newTNGA] = yield (0, watcherHelper_1.retryUntilAvailable)(() => (0, fileWatcherTNGA_1.listTNGACsvEntriesSinceTimestamp)(WATCH_FOLDER_TNGA, lastDateTNGA), `CSV watch folder (${WATCH_FOLDER_TNGA})`);
+                const tngaItems = newTNGA.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                if (tngaItems.length > 0) {
+                    console.log(`📦 Found ${tngaItems.length} TNGA entries`);
+                    yield (0, watcherHelper_1.processEntries)(tngaItems, tngaPlantId, SETTING_KEY_TNGA);
                 }
                 yield (0, watcherHelper_1.sleep)(pollIntervalMs);
             }

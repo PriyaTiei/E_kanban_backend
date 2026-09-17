@@ -33,15 +33,19 @@ exports.stationParts = (0, pg_core_1.pgTable)("station_parts", {
     plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id, { onDelete: "cascade" }).notNull().default(1),
     stationId: (0, pg_core_1.integer)("station_id").references(() => exports.stations.id, { onDelete: "cascade" }).notNull(),
     partId: (0, pg_core_1.integer)("part_id").references(() => exports.parts.id, { onDelete: "cascade" }).notNull(),
+    //TODO: Remove this column after updating productPartExceptions with all parts
     allowed_for_all_products: (0, pg_core_1.boolean)("allowed_for_all_products").default(true).notNull(),
+    //---------
     process: (0, pg_core_1.varchar)("process", { length: 20 }),
     prepLocation: (0, pg_core_1.varchar)("prep-location", { length: 50 }),
     supplyLocation: (0, pg_core_1.varchar)("supply-location", { length: 50 }),
     consumptionPerProduct: (0, pg_core_1.integer)("consumption_per_product").notNull(),
     binQuantity: (0, pg_core_1.integer)("bin_quantity").notNull(),
+    //TODO: Shift these to another table
     currentQuantity: (0, pg_core_1.integer)("current_quantity").notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
     updatedBy: (0, pg_core_1.integer)("updated_by").references(() => exports.users.id, { onDelete: "cascade" }),
+    //-------------------
 });
 exports.productPartExceptions = (0, pg_core_1.pgTable)("product_part_exceptions", {
     productId: (0, pg_core_1.integer)("product_id").references(() => exports.products.id, { onDelete: "cascade" }).notNull(),
@@ -69,12 +73,12 @@ exports.kanbanRequests = (0, pg_core_1.pgTable)("kanban_requests", {
     plantId: (0, pg_core_1.integer)("plant_id").references(() => exports.plants.id, { onDelete: "cascade" }).notNull().default(1),
     stationPartsId: (0, pg_core_1.integer)("station_parts_id").references(() => exports.stationParts.id, { onDelete: "cascade" }),
     partId: (0, pg_core_1.integer)("part_id").references(() => exports.parts.id, { onDelete: "cascade" }),
-    // TODO: Remove these columns after old kanbans are cleared.
+    // TODO: Remove these columns once all the rows have NULL in these columns.
     stationId: (0, pg_core_1.integer)("station_id").references(() => exports.stations.id, { onDelete: "cascade" }),
     process: (0, pg_core_1.varchar)("process", { length: 20 }),
     supplyLocation: (0, pg_core_1.varchar)("supply-location", { length: 50 }),
-    // ----------
     productId: (0, pg_core_1.integer)("product_id").references(() => exports.products.id, { onDelete: "cascade" }),
+    // ----------
     requestedAt: (0, pg_core_1.timestamp)("requested_at", { withTimezone: true }).defaultNow().notNull(),
     acknowledgedByLogistics: (0, pg_core_1.boolean)("acknowledged_by_logistics").default(false).notNull(),
     acknowledgedAt: (0, pg_core_1.timestamp)("acknowledged_at", { withTimezone: true }),

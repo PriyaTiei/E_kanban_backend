@@ -83,8 +83,10 @@ function pollEntries() {
         }
     });
 }
-// async function main() {
-//   setInterval(pollEntries, POLL_INTERVAL_MS);
-//   console.log("📡 Polling worker started...");
-// }
-// main();
+function main() {
+    return __awaiter(this, void 0, void 0, function* () {
+        setInterval(pollEntries, POLL_INTERVAL_MS);
+        console.log("📡 Polling worker started...");
+    });
+}
+main();
