@@ -57,31 +57,33 @@ export async function pollEntries() {
 
       // Sort oldest to newest for GD
       const sortedGD = entries
-      .slice(0, 10)
-      .filter((e) => 
-        new Date(e.created_at) > lastProcessedDateGD 
-        && ((Number(e.id_number) >= 300 && Number(e.id_number) < 400) || (Number(e.id_number) >= 400 && Number(e.id_number) < 500))
-      ).sort((a, b) => 
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
+        .filter((e) => 
+          new Date(e.created_at) > lastProcessedDateGD 
+          && ((Number(e.id_number) >= 300 && Number(e.id_number) < 400) || (Number(e.id_number) >= 400 && Number(e.id_number) < 500))
+        )
+        .sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+        .slice(0, 10);
 
-      console.log(`📦 Found ${sortedGD.length} new entries for GD since last processed at ${lastProcessedDateGD.toLocaleString()}: `,sortedGD);
+      console.log(`📦 Found ${sortedGD.length} new entries for GD since last processed at ${lastProcessedDateGD.toLocaleString()}: `, sortedGD);
       
-      processEntries(sortedGD, gdPlantId, SETTING_KEY_GD);
+      await processEntries(sortedGD, gdPlantId, SETTING_KEY_GD);
 
       // Sort oldest to newest for TNGA
       const sortedTNGA = entries
-      .slice(0, 10)
-      .filter((e) => 
-        new Date(e.created_at) > lastProcessedDateTNGA 
-        && ((Number(e.id_number) >= 100 && Number(e.id_number) < 200) || (Number(e.id_number) >= 200 && Number(e.id_number) < 300))
-      ).sort((a, b) => 
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
+        .filter((e) => 
+          new Date(e.created_at) > lastProcessedDateTNGA 
+          && ((Number(e.id_number) >= 100 && Number(e.id_number) < 200) || (Number(e.id_number) >= 200 && Number(e.id_number) < 300))
+        )
+        .sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+        .slice(0, 10);
 
-      console.log(`📦 Found ${sortedTNGA.length} new entries for TNGA since last processed at ${lastProcessedDateTNGA.toLocaleString()}: `,sortedTNGA);
+      console.log(`📦 Found ${sortedTNGA.length} new entries for TNGA since last processed at ${lastProcessedDateTNGA.toLocaleString()}: `, sortedTNGA);
       
-      processEntries(sortedTNGA, tngaPlantId, SETTING_KEY_TNGA);
+      await processEntries(sortedTNGA, tngaPlantId, SETTING_KEY_TNGA);
     }
   } catch (err) {
     console.error("❌ Polling error:", err);
