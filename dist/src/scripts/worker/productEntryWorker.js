@@ -39,8 +39,14 @@ function processEntries(sorted, plantId, settingKey) {
         }
     });
 }
+let isPolling = false;
 function pollEntries() {
     return __awaiter(this, void 0, void 0, function* () {
+        if (isPolling) {
+            console.log("⏳ Previous poll still in progress, skipping tick...");
+            return;
+        }
+        isPolling = true;
         const gdPlantId = 1;
         const tngaPlantId = 2;
         try {
@@ -62,26 +68,27 @@ function pollEntries() {
                 const entries = json.data;
                 if (!entries || !entries.length)
                     return;
-                // Sort oldest to newest for GD
+                // Sort oldest to newest for GD (process all records)
                 const sortedGD = entries
                     .filter((e) => new Date(e.created_at) > lastProcessedDateGD
                     && ((Number(e.id_number) >= 300 && Number(e.id_number) < 400) || (Number(e.id_number) >= 400 && Number(e.id_number) < 500)))
-                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                    .slice(0, 10);
+                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                 console.log(`📦 Found ${sortedGD.length} new entries for GD since last processed at ${lastProcessedDateGD.toLocaleString()}: `, sortedGD);
                 yield processEntries(sortedGD, gdPlantId, SETTING_KEY_GD);
-                // Sort oldest to newest for TNGA
+                // Sort oldest to newest for TNGA (process all records)
                 const sortedTNGA = entries
                     .filter((e) => new Date(e.created_at) > lastProcessedDateTNGA
                     && ((Number(e.id_number) >= 100 && Number(e.id_number) < 200) || (Number(e.id_number) >= 200 && Number(e.id_number) < 300)))
-                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                    .slice(0, 10);
+                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                 console.log(`📦 Found ${sortedTNGA.length} new entries for TNGA since last processed at ${lastProcessedDateTNGA.toLocaleString()}: `, sortedTNGA);
                 yield processEntries(sortedTNGA, tngaPlantId, SETTING_KEY_TNGA);
             }
         }
         catch (err) {
             console.error("❌ Polling error:", err);
+        }
+        finally {
+            isPolling = false;
         }
     });
 }

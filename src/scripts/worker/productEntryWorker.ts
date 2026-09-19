@@ -31,7 +31,14 @@ async function processEntries(sorted: ProductEntry[], plantId: number, settingKe
   }
 }
 
+let isPolling = false;
+
 export async function pollEntries() {
+  if (isPolling) {
+    console.log("⏳ Previous poll still in progress, skipping tick...");
+    return;
+  }
+  isPolling = true;
   const gdPlantId = 1;
   const tngaPlantId = 2;
   try {
@@ -55,7 +62,7 @@ export async function pollEntries() {
 
       if (!entries || !entries.length) return;
 
-      // Sort oldest to newest for GD
+      // Sort oldest to newest for GD (process all records)
       const sortedGD = entries
         .filter((e) => 
           new Date(e.created_at) > lastProcessedDateGD 
@@ -63,14 +70,13 @@ export async function pollEntries() {
         )
         .sort((a, b) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        )
-        .slice(0, 10);
+        );
 
       console.log(`📦 Found ${sortedGD.length} new entries for GD since last processed at ${lastProcessedDateGD.toLocaleString()}: `, sortedGD);
       
       await processEntries(sortedGD, gdPlantId, SETTING_KEY_GD);
 
-      // Sort oldest to newest for TNGA
+      // Sort oldest to newest for TNGA (process all records)
       const sortedTNGA = entries
         .filter((e) => 
           new Date(e.created_at) > lastProcessedDateTNGA 
@@ -78,8 +84,7 @@ export async function pollEntries() {
         )
         .sort((a, b) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        )
-        .slice(0, 10);
+        );
 
       console.log(`📦 Found ${sortedTNGA.length} new entries for TNGA since last processed at ${lastProcessedDateTNGA.toLocaleString()}: `, sortedTNGA);
       
@@ -87,6 +92,8 @@ export async function pollEntries() {
     }
   } catch (err) {
     console.error("❌ Polling error:", err);
+  } finally {
+    isPolling = false;
   }
 }
 
