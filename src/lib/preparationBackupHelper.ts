@@ -384,14 +384,32 @@ export async function generatePreparationExcel(options: PreparationExportOptions
  * Also saves a timestamped copy in <backupDir>/archive/ for historical reference.
  */
 export async function savePreparationBackupFiles(customBackupDir?: string) {
-  const backupDir =
-    customBackupDir ||
-    process.env.BACKUP_DIR ||
-    path.resolve(process.cwd(), "exports", "backups");
-  const archiveDir = path.join(backupDir, "archive");
+  let backupDir = customBackupDir || process.env.BACKUP_DIR;
 
-  await fs.mkdir(backupDir, { recursive: true });
-  await fs.mkdir(archiveDir, { recursive: true });
+  // Support setting SHOPFLOOR_PC_IP in .env
+  if (!backupDir && process.env.SHOPFLOOR_PC_IP) {
+    const shareName = process.env.SHOPFLOOR_SHARE_NAME || "E_Kanban_Backup";
+    backupDir = `\\\\${process.env.SHOPFLOOR_PC_IP}\\${shareName}`;
+  }
+
+  if (!backupDir) {
+    backupDir = path.resolve(process.cwd(), "exports", "backups");
+  }
+
+  let archiveDir = path.join(backupDir, "archive");
+
+  try {
+    await fs.mkdir(backupDir, { recursive: true });
+    await fs.mkdir(archiveDir, { recursive: true });
+  } catch (err: any) {
+    console.error(`⚠️ [Backup Worker] Could not connect to remote backup directory (${backupDir}): ${err.message}`);
+    // Safe local fallback so backups never fail completely
+    backupDir = path.resolve(process.cwd(), "exports", "backups");
+    archiveDir = path.join(backupDir, "archive");
+    console.log(`ℹ️ [Backup Worker] Using local server fallback folder: ${backupDir}`);
+    await fs.mkdir(backupDir, { recursive: true });
+    await fs.mkdir(archiveDir, { recursive: true });
+  }
 
   const now = new Date();
   const dateStamp = now.toISOString().replace(/[:.]/g, "-");

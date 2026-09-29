@@ -358,12 +358,29 @@ function generatePreparationExcel(options) {
  */
 function savePreparationBackupFiles(customBackupDir) {
     return __awaiter(this, void 0, void 0, function* () {
-        const backupDir = customBackupDir ||
-            process.env.BACKUP_DIR ||
-            path_1.default.resolve(process.cwd(), "exports", "backups");
-        const archiveDir = path_1.default.join(backupDir, "archive");
-        yield promises_1.default.mkdir(backupDir, { recursive: true });
-        yield promises_1.default.mkdir(archiveDir, { recursive: true });
+        let backupDir = customBackupDir || process.env.BACKUP_DIR;
+        // Support setting SHOPFLOOR_PC_IP in .env
+        if (!backupDir && process.env.SHOPFLOOR_PC_IP) {
+            const shareName = process.env.SHOPFLOOR_SHARE_NAME || "E_Kanban_Backup";
+            backupDir = `\\\\${process.env.SHOPFLOOR_PC_IP}\\${shareName}`;
+        }
+        if (!backupDir) {
+            backupDir = path_1.default.resolve(process.cwd(), "exports", "backups");
+        }
+        let archiveDir = path_1.default.join(backupDir, "archive");
+        try {
+            yield promises_1.default.mkdir(backupDir, { recursive: true });
+            yield promises_1.default.mkdir(archiveDir, { recursive: true });
+        }
+        catch (err) {
+            console.error(`⚠️ [Backup Worker] Could not connect to remote backup directory (${backupDir}): ${err.message}`);
+            // Safe local fallback so backups never fail completely
+            backupDir = path_1.default.resolve(process.cwd(), "exports", "backups");
+            archiveDir = path_1.default.join(backupDir, "archive");
+            console.log(`ℹ️ [Backup Worker] Using local server fallback folder: ${backupDir}`);
+            yield promises_1.default.mkdir(backupDir, { recursive: true });
+            yield promises_1.default.mkdir(archiveDir, { recursive: true });
+        }
         const now = new Date();
         const dateStamp = now.toISOString().replace(/[:.]/g, "-");
         const results = [];
