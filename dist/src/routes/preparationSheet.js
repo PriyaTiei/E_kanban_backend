@@ -18,6 +18,7 @@ const client_1 = require("../db/client");
 const schema_1 = require("../db/schema");
 const drizzle_orm_1 = require("drizzle-orm");
 const kanbanHelpers_1 = require("../lib/kanbanHelpers");
+const preparationBackupHelper_1 = require("../lib/preparationBackupHelper");
 exports.preparationSheetRouter = express_1.default.Router();
 const selectKanbanFields = {
     id: schema_1.kanbanRequests.id,
@@ -30,6 +31,38 @@ const selectKanbanFields = {
     reportedAt: schema_1.delayKanbans.reportedAt,
     arrangedAt: schema_1.delayKanbans.arrangedAt,
 };
+exports.preparationSheetRouter.get("/export-excel", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const user = req.session.user;
+        if (!user) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        let plantId = user.plantId;
+        if (user.role === "admin" && req.query.plantId) {
+            plantId = Number(req.query.plantId);
+        }
+        if (!plantId) {
+            plantId = 1; // Default GD if not set
+        }
+        const processFilter = req.query.process ? String(req.query.process) : null;
+        const plantName = plantId === 1 ? "GD" : plantId === 2 ? "TNGA" : `Plant_${plantId}`;
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const filename = `${plantName}_Preparation_Backup_${dateStr}.xlsx`;
+        const buffer = yield (0, preparationBackupHelper_1.generatePreparationExcel)({
+            plantId,
+            processFilter,
+            includeMasterReference: true,
+        });
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.setHeader("Content-Length", buffer.length);
+        return res.status(200).send(buffer);
+    }
+    catch (error) {
+        console.error("Failed to export preparation Excel:", error);
+        return res.status(500).json({ error: "Failed to generate backup Excel" });
+    }
+}));
 exports.preparationSheetRouter.get("/kanbans", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c, _d;
     try {

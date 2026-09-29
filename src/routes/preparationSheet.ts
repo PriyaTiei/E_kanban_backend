@@ -4,6 +4,7 @@ import { kanbanRequests, stations, parts, products, frozenKanbans, processFreeze
 import { eq, and, asc, count, sql, inArray, or, ilike, isNull } from "drizzle-orm";
 import { KanbanCreateRequest, KanbanEntry, KanbanModifyRequest } from "../lib/types";
 import { deleteKanban } from "../lib/kanbanHelpers";
+import { generatePreparationExcel } from "../lib/preparationBackupHelper";
 
 export const preparationSheetRouter = express.Router();
 
@@ -18,6 +19,50 @@ const selectKanbanFields = {
     reportedAt: delayKanbans.reportedAt,
     arrangedAt: delayKanbans.arrangedAt,
 }
+
+preparationSheetRouter.get("/export-excel", async (req, res): Promise<any> => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    let plantId = user.plantId;
+    if (user.role === "admin" && req.query.plantId) {
+      plantId = Number(req.query.plantId);
+    }
+
+    if (!plantId) {
+      plantId = 1; // Default GD if not set
+    }
+
+    const processFilter = req.query.process ? String(req.query.process) : null;
+    const plantName = plantId === 1 ? "GD" : plantId === 2 ? "TNGA" : `Plant_${plantId}`;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `${plantName}_Preparation_Backup_${dateStr}.xlsx`;
+
+    const buffer = await generatePreparationExcel({
+      plantId,
+      processFilter,
+      includeMasterReference: true,
+    });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename}"`
+    );
+    res.setHeader("Content-Length", buffer.length);
+
+    return res.status(200).send(buffer);
+  } catch (error) {
+    console.error("Failed to export preparation Excel:", error);
+    return res.status(500).json({ error: "Failed to generate backup Excel" });
+  }
+});
 
 preparationSheetRouter.get("/kanbans", async (req, res): Promise<any> => {
   try {

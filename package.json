@@ -10,6 +10,7 @@
     "seed": "ts-node src/scripts/seedExcel.ts",
     "seed_users": "ts-node src/scripts/seedUsers.ts",
     "update_worker": "ts-node src/scripts/worker/supplysheetUpdateWorker.ts",
+    "backup_worker": "ts-node src/scripts/worker/preparationBackupWorker.ts",
     "migrate": "npx drizzle-kit push",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -8,6 +8,8 @@ package-lock.json
 data/
 uploads/
 export/
+exports/
+
 
 server.cert
 server.key
